@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:myapp/screens/cliente.dart';
 import '../core/constants.dart';
+import 'package:flutter/services.dart';
 
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
@@ -18,40 +20,48 @@ class _CadastroScreenState extends State<CadastroScreen> {
       appBar: AppBar(title: const Text("Criar Nova Conta")),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
-        child: Column(
-          children: [
-            _buildTipoUsuarioToggle(),
-            const SizedBox(height: 24),
-            _buildCamposComuns(),
+        // ADICIONAMOS O FORM AQUI PARA ENVOLVER TODOS OS CAMPOS
+        child: Form(
+          key: _formKey, // Agora a chave está conectada ao formulário!
+          child: Column(
+            children: [
+              _buildTipoUsuarioToggle(),
+              const SizedBox(height: 24),
+              _buildCamposComuns(),
 
-            // Campos que aparecem apenas para Profissionais
-            if (!isCliente) ...[
-              const SizedBox(height: 16),
-              _buildDropdownProfissoes(),
-              const SizedBox(height: 16),
-              _buildTextField(
-                "Breve Biografia",
-                controller: _bioController,
-                maxLines: 3,
+              // Campos que aparecem apenas para Profissionais
+              if (!isCliente) ...[
+                const SizedBox(height: 16),
+                _buildDropdownProfissoes(),
+                const SizedBox(height: 16),
+                _buildTextField(
+                  "Breve Biografia",
+                  controller: _bioController,
+                  maxLines: 3,
+                ),
+              ],
+
+              const SizedBox(height: 32),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 50), // Botão largo
+                ),
+                onPressed: () {
+                  // Agora o currentState não será mais nulo
+                  if (_formKey.currentState?.validate() ?? false) {
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const HomeCliente(),
+                      ),
+                      (route) => false,
+                    );
+                  } 
+                },
+                child: const Text("Finalizar Cadastro"),
               ),
             ],
-
-            const SizedBox(height: 32),
-            ElevatedButton(
-              onPressed: () {
-                // A mágica acontece aqui:
-                if (_formKey.currentState!.validate()) {
-                  // Se for válido, aqui você enviará para o Firebase futuramente
-                  print("Dados prontos para o banco: ${_emailController.text}");
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Processando cadastro...")),
-                  );
-                }
-              },
-              child: const Text("Finalizar Cadastro"),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -90,6 +100,13 @@ class _CadastroScreenState extends State<CadastroScreen> {
         _buildTextField(
           "CPF",
           controller: _cpfController,
+          keyboardType:
+              TextInputType.number, // Sugere teclado numérico no celular
+          inputFormatters: [
+            FilteringTextInputFormatter
+                .digitsOnly, // BLOQUEIA letras e símbolos
+            LengthLimitingTextInputFormatter(11), // Limita a 11 caracteres
+          ],
           validator: (value) {
             if (value == null || value.isEmpty) return "CPF é obrigatório";
             if (value.length < 11) return "O CPF deve ter 11 dígitos";
@@ -115,8 +132,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
             controller: _bioController,
             maxLines: 3, // Campo maior como no seu design
             validator: (value) {
-              if (value == null || value.isEmpty)
+              if (value == null || value.isEmpty) {
                 return ("Conte um pouco sobre seu trabalho");
+              }
               return null;
             },
           ),
@@ -146,27 +164,23 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   Widget _buildTextField(
     String label, {
-    required TextEditingController
-    controller, // Obrigatório para capturar o texto
-    bool obscureText = false, // Para senhas
-    int maxLines = 1, // Para a Bio, que é maior
-    String? Function(String?)? validator, // A lógica de erro
+    required TextEditingController controller,
+    bool obscureText = false,
+    int maxLines = 1,
+    TextInputType? keyboardType, // Novo: define o tipo de teclado
+    List<TextInputFormatter>? inputFormatters, // Novo: filtra o que entra
+    String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       obscureText: obscureText,
       maxLines: maxLines,
-      validator: validator, // O Flutter chama essa função automaticamente
+      keyboardType: keyboardType, // Aplica o tipo de teclado
+      inputFormatters: inputFormatters, // Aplica o filtro de caracteres
+      validator: validator,
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(
-          color: Color(0xFF1976D2),
-        ), // Azul do seu design
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF1976D2), width: 2),
-        ),
       ),
     );
   }
