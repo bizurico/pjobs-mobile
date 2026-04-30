@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../core/constants.dart'; // Importamos as categorias que você já criou
+import '../core/constants.dart';
+import 'profissional.dart'; // Importamos as categorias que você já criou
 
 class HomeCliente extends StatelessWidget {
   const HomeCliente({super.key});
@@ -173,7 +174,12 @@ class HomeCliente extends StatelessWidget {
             ),
             trailing: const Icon(Icons.arrow_forward_ios, size: 16),
             onTap: () {
-              // Navegar para o perfil do profissional
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const ProfissionalPage(),
+                ),
+              );
             },
           ),
         );

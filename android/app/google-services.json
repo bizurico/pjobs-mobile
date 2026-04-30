@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "677764770872",
+    "project_id": "pjobs-a4dbf",
+    "storage_bucket": "pjobs-a4dbf.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:677764770872:android:b3ce4f4cbc2d1babad0acd",
+        "android_client_info": {
+          "package_name": "com.example.myapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAvEjRqTc03is_jYP8nxj4a1Zgorl0pxyg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
