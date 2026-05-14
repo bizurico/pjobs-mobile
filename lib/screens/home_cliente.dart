@@ -2,9 +2,24 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login.dart';
+import 'detalhes_profissional.dart';
 
-class HomeCliente extends StatelessWidget {
+class HomeCliente extends StatefulWidget {
   const HomeCliente({super.key});
+
+  @override
+  State<HomeCliente> createState() => _HomeClienteState();
+}
+
+class _HomeClienteState extends State<HomeCliente> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,45 +44,78 @@ class HomeCliente extends StatelessWidget {
         ],
       ),
       body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Padding(
-            padding: EdgeInsets.all(20.0),
-            child: Text(
-              "Profissionais Disponíveis",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+          // 1. BARRA DE PESQUISA UNIFICADA
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: "Busque por nome ou especialidade...",
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = "");
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
+              ),
             ),
           ),
+
+          // 2. LISTAGEM DINÂMICA COM FILTRO LOCAL
           Expanded(
-            // O StreamBuilder mantém a lista sempre atualizada
             child: StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('usuarios')
-                  .where(
-                    'isCliente',
-                    isEqualTo: false,
-                  ) // Busca apenas profissionais
+                  .where('isCliente', isEqualTo: false)
                   .snapshots(),
               builder: (context, snapshot) {
+                if (snapshot.hasError)
+                  return Center(child: Text("Erro: ${snapshot.error}"));
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
 
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                // Filtramos a lista baseada no texto da pesquisa
+                final docs = snapshot.data!.docs.where((doc) {
+                  final dados = doc.data() as Map<String, dynamic>;
+                  final nome = (dados['nome'] ?? "").toString().toLowerCase();
+                  final profissao = (dados['profissao'] ?? "")
+                      .toString()
+                      .toLowerCase();
+
+                  // Retorna verdadeiro se o termo de busca estiver no nome OU na profissão
+                  return nome.contains(_searchQuery) ||
+                      profissao.contains(_searchQuery);
+                }).toList();
+
+                if (docs.isEmpty) {
                   return const Center(
-                    child: Text("Nenhum profissional encontrado no momento."),
+                    child: Text("Nenhum profissional encontrado."),
                   );
                 }
 
-                var profissionais = snapshot.data!.docs;
-
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
-                  itemCount: profissionais.length,
+                  itemCount: docs.length,
                   itemBuilder: (context, index) {
-                    var dados =
-                        profissionais[index].data() as Map<String, dynamic>;
-                    bool isOnline = dados['isOnline'] ?? false;
+                    final dados = docs[index].data() as Map<String, dynamic>;
+                    final bool isOnline = dados['isOnline'] ?? false;
 
                     return Card(
                       margin: const EdgeInsets.only(bottom: 16),
@@ -78,7 +126,7 @@ class HomeCliente extends StatelessWidget {
                         contentPadding: const EdgeInsets.all(12),
                         leading: CircleAvatar(
                           radius: 25,
-                          backgroundColor: Colors.blue.shade100,
+                          backgroundColor: Colors.blue.shade50,
                           child: const Icon(Icons.person, color: Colors.blue),
                         ),
                         title: Text(
@@ -99,22 +147,27 @@ class HomeCliente extends StatelessWidget {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  isOnline
-                                      ? "Disponível agora"
-                                      : "Indisponível",
+                                  isOnline ? "Disponível" : "Offline",
+                                  style: TextStyle(
+                                    color: isOnline
+                                        ? Colors.green
+                                        : Colors.grey,
+                                  ),
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        trailing: ElevatedButton(
-                          onPressed: isOnline
-                              ? () {
-                                  // Aqui futuramente abriremos o chat ou o agendamento
-                                }
-                              : null, // Desativa o botão se estiver offline
-                          child: const Text("Contratar"),
-                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  DetalhesProfissional(profissional: dados),
+                            ),
+                          );
+                        },
                       ),
                     );
                   },

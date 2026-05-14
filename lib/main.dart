@@ -49,6 +49,10 @@ class AuthGate extends StatelessWidget {
               .doc(snapshot.data!.uid)
               .get(),
           builder: (context, userSnapshot) {
+            if (snapshot.hasError) {
+              print("ERRO DO FIRESTORE: ${snapshot.error}");
+              return Center(child: Text("Erro: ${snapshot.error}"));
+            }
             if (userSnapshot.connectionState == ConnectionState.waiting) {
               return const Scaffold(
                 body: Center(child: CircularProgressIndicator()),
