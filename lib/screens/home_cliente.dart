@@ -1,9 +1,25 @@
 import 'package:flutter/material.dart';
-import '../core/constants.dart';
-import 'profissional.dart'; // Importamos as categorias que você já criou
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'login.dart';
+import 'detalhes_profissional.dart';
 
-class HomeCliente extends StatelessWidget {
+class HomeCliente extends StatefulWidget {
   const HomeCliente({super.key});
+
+  @override
+  State<HomeCliente> createState() => _HomeClienteState();
+}
+
+class _HomeClienteState extends State<HomeCliente> {
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = "";
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,177 +29,154 @@ class HomeCliente extends StatelessWidget {
         title: const Text("PJobs Express"),
         actions: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none),
-          ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.person_outline)),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            _buildSectionTitle("Categorias"),
-            _buildCategoriesGrid(),
-            _buildSectionTitle("Profissionais Próximos"),
-            _buildProfessionalList(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: const Color(0xFF1976D2),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Início"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
-            label: "Pedidos",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: "Chat",
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
           ),
         ],
       ),
-    );
-  }
-
-  // Cabeçalho com Barra de Busca
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1976D2),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
         children: [
-          const Text(
-            "Olá, Luis!",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Text(
-            "De qual serviço você precisa hoje?",
-            style: TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            decoration: InputDecoration(
-              hintText: "Buscar encanador, suporte TI...",
-              prefixIcon: const Icon(Icons.search),
-              fillColor: Colors.white,
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
+          // 1. BARRA DE PESQUISA UNIFICADA
+          Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (value) {
+                setState(() {
+                  _searchQuery = value.toLowerCase();
+                });
+              },
+              decoration: InputDecoration(
+                hintText: "Busque por nome ou especialidade...",
+                prefixIcon: const Icon(Icons.search),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = "");
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(15),
+                  borderSide: BorderSide.none,
+                ),
               ),
             ),
           ),
+
+          // 2. LISTAGEM DINÂMICA COM FILTRO LOCAL
+          Expanded(
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .where('isCliente', isEqualTo: false)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.hasError)
+                  return Center(child: Text("Erro: ${snapshot.error}"));
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                // Filtramos a lista baseada no texto da pesquisa
+                final docs = snapshot.data!.docs.where((doc) {
+                  final dados = doc.data() as Map<String, dynamic>;
+                  final nome = (dados['nome'] ?? "").toString().toLowerCase();
+                  final profissao = (dados['profissao'] ?? "")
+                      .toString()
+                      .toLowerCase();
+
+                  // Retorna verdadeiro se o termo de busca estiver no nome OU na profissão
+                  return nome.contains(_searchQuery) ||
+                      profissao.contains(_searchQuery);
+                }).toList();
+
+                if (docs.isEmpty) {
+                  return const Center(
+                    child: Text("Nenhum profissional encontrado."),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: docs.length,
+                  itemBuilder: (context, index) {
+                    final dados = docs[index].data() as Map<String, dynamic>;
+                    final bool isOnline = dados['isOnline'] ?? false;
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(12),
+                        leading: CircleAvatar(
+                          radius: 25,
+                          backgroundColor: Colors.blue.shade50,
+                          child: const Icon(Icons.person, color: Colors.blue),
+                        ),
+                        title: Text(
+                          dados['nome'] ?? "Profissional",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(dados['profissao'] ?? "Serviços Gerais"),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  size: 10,
+                                  color: isOnline ? Colors.green : Colors.grey,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isOnline ? "Disponível" : "Offline",
+                                  style: TextStyle(
+                                    color: isOnline
+                                        ? Colors.green
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: const Icon(Icons.chevron_right),
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) =>
+                                  DetalhesProfissional(profissional: dados),
+                            ),
+                          );
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  // Grid de categorias usando o que você definiu em constants.dart
-  Widget _buildCategoriesGrid() {
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 6, // Mostrando as 6 primeiras para o exemplo
-        itemBuilder: (context, index) {
-          return Container(
-            width: 80,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.blue.shade50,
-                  child: const Icon(
-                    Icons.work_outline,
-                    color: Color(0xFF1976D2),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AppConstants.categorias[index],
-                  style: const TextStyle(fontSize: 12),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // Lista de Cards dos Profissionais (Base para o RF07)
-  Widget _buildProfessionalList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 3,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemBuilder: (context, index) {
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(12),
-            leading: const CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.grey,
-            ),
-            title: Text(
-              "Profissional Exemplo ${index + 1}",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Eletricista • ⭐ 4.9"),
-                Text(
-                  "A 2.5 km de distância",
-                  style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
-                ),
-              ],
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProfissionalPage(),
-                ),
-              );
-            },
-          ),
-        );
-      },
     );
   }
 }
