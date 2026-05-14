@@ -1,3 +1,5 @@
+// ignore_for_file: avoid_print
+
 import 'package:flutter/material.dart';
 import 'package:myapp/screens/home_cliente.dart';
 import 'package:myapp/screens/home_profissional.dart';
@@ -5,7 +7,6 @@ import '../core/constants.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:myapp/firebase_options.dart';
 
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
@@ -187,8 +188,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
           controller: _senhaController,
           obscureText: true,
           validator: (value) {
-            if (value == null || value.length < 6)
+            if (value == null || value.length < 6) {
               return "Mínimo de 6 caracteres";
+            }
             return null;
           },
         ),

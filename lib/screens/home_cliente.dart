@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../core/constants.dart';
-import 'profissional.dart'; // Importamos as categorias que você já criou
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'login.dart';
 
 class HomeCliente extends StatelessWidget {
   const HomeCliente({super.key});
@@ -13,177 +14,116 @@ class HomeCliente extends StatelessWidget {
         title: const Text("PJobs Express"),
         actions: [
           IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.notifications_none),
-          ),
-          IconButton(onPressed: () {}, icon: const Icon(Icons.person_outline)),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            _buildSectionTitle("Categorias"),
-            _buildCategoriesGrid(),
-            _buildSectionTitle("Profissionais Próximos"),
-            _buildProfessionalList(),
-          ],
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0,
-        selectedItemColor: const Color(0xFF1976D2),
-        unselectedItemColor: Colors.grey,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Início"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.assignment),
-            label: "Pedidos",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: "Chat",
-          ),
-        ],
-      ),
-    );
-  }
-
-  // Cabeçalho com Barra de Busca
-  Widget _buildHeader() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: const BoxDecoration(
-        color: Color(0xFF1976D2),
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Olá, Luis!",
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const Text(
-            "De qual serviço você precisa hoje?",
-            style: TextStyle(color: Colors.white70),
-          ),
-          const SizedBox(height: 20),
-          TextField(
-            decoration: InputDecoration(
-              hintText: "Buscar encanador, suporte TI...",
-              prefixIcon: const Icon(Icons.search),
-              fillColor: Colors.white,
-              filled: true,
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSectionTitle(String title) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 24, 20, 12),
-      child: Text(
-        title,
-        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  // Grid de categorias usando o que você definiu em constants.dart
-  Widget _buildCategoriesGrid() {
-    return SizedBox(
-      height: 100,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        itemCount: 6, // Mostrando as 6 primeiras para o exemplo
-        itemBuilder: (context, index) {
-          return Container(
-            width: 80,
-            margin: const EdgeInsets.symmetric(horizontal: 4),
-            child: Column(
-              children: [
-                CircleAvatar(
-                  radius: 30,
-                  backgroundColor: Colors.blue.shade50,
-                  child: const Icon(
-                    Icons.work_outline,
-                    color: Color(0xFF1976D2),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  AppConstants.categorias[index],
-                  style: const TextStyle(fontSize: 12),
-                  textAlign: TextAlign.center,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
-  }
-
-  // Lista de Cards dos Profissionais (Base para o RF07)
-  Widget _buildProfessionalList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 3,
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      itemBuilder: (context, index) {
-        return Card(
-          elevation: 2,
-          margin: const EdgeInsets.only(bottom: 16),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: ListTile(
-            contentPadding: const EdgeInsets.all(12),
-            leading: const CircleAvatar(
-              radius: 30,
-              backgroundColor: Colors.grey,
-            ),
-            title: Text(
-              "Profissional Exemplo ${index + 1}",
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text("Eletricista • ⭐ 4.9"),
-                Text(
-                  "A 2.5 km de distância",
-                  style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
-                ),
-              ],
-            ),
-            trailing: const Icon(Icons.arrow_forward_ios, size: 16),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const ProfissionalPage(),
-                ),
-              );
+            icon: const Icon(Icons.logout),
+            onPressed: () async {
+              await FirebaseAuth.instance.signOut();
+              if (context.mounted) {
+                Navigator.pushAndRemoveUntil(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
             },
           ),
-        );
-      },
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Text(
+              "Profissionais Disponíveis",
+              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ),
+          Expanded(
+            // O StreamBuilder mantém a lista sempre atualizada
+            child: StreamBuilder<QuerySnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .where(
+                    'isCliente',
+                    isEqualTo: false,
+                  ) // Busca apenas profissionais
+                  .snapshots(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(
+                    child: Text("Nenhum profissional encontrado no momento."),
+                  );
+                }
+
+                var profissionais = snapshot.data!.docs;
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  itemCount: profissionais.length,
+                  itemBuilder: (context, index) {
+                    var dados =
+                        profissionais[index].data() as Map<String, dynamic>;
+                    bool isOnline = dados['isOnline'] ?? false;
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.all(12),
+                        leading: CircleAvatar(
+                          radius: 25,
+                          backgroundColor: Colors.blue.shade100,
+                          child: const Icon(Icons.person, color: Colors.blue),
+                        ),
+                        title: Text(
+                          dados['nome'] ?? "Profissional",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(dados['profissao'] ?? "Serviços Gerais"),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.circle,
+                                  size: 10,
+                                  color: isOnline ? Colors.green : Colors.grey,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  isOnline
+                                      ? "Disponível agora"
+                                      : "Indisponível",
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: isOnline
+                              ? () {
+                                  // Aqui futuramente abriremos o chat ou o agendamento
+                                }
+                              : null, // Desativa o botão se estiver offline
+                          child: const Text("Contratar"),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
