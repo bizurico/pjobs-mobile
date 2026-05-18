@@ -53,12 +53,13 @@ class _CadastroScreenState extends State<CadastroScreen> {
               if (!isCliente) 'bio': _bioController.text,
               'createdAt': DateTime.now(),
             });
-
+        if (!context.mounted) return;
         print("Sucesso! Usuário salvo no banco de dados.");
 
         // 3. Redireciona
         _redirecionarUsuario();
       } catch (e) {
+        if (!context.mounted) return;
         print("Erro no cadastro: $e");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro ao cadastrar: ${e.toString()}")),
@@ -204,7 +205,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
         labelText: "Sua Especialidade",
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      value: categoriaSelecionada,
+      initialValue: categoriaSelecionada,
       items: AppConstants.categorias.map((String value) {
         return DropdownMenuItem<String>(value: value, child: Text(value));
       }).toList(),

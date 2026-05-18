@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class DetalhesProfissional extends StatelessWidget {
   final Map<String, dynamic> profissional;
@@ -26,13 +28,20 @@ class DetalhesProfissional extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 60,
                       backgroundColor: Colors.blue.shade50,
-                      child: const Icon(Icons.person, size: 80, color: Colors.blue),
+                      child: const Icon(
+                        Icons.person,
+                        size: 80,
+                        color: Colors.blue,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   Text(
                     profissional['nome'] ?? "Profissional",
-                    style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   Text(
                     profissional['profissao'] ?? "Serviços Gerais",
@@ -43,7 +52,7 @@ class DetalhesProfissional extends StatelessWidget {
                 ],
               ),
             ),
-            
+
             // Seção de Biografia
             Padding(
               padding: const EdgeInsets.all(24),
@@ -56,22 +65,27 @@ class DetalhesProfissional extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    profissional['bio'] ?? "Este profissional ainda não preencheu uma biografia.",
+                    profissional['bio'] ??
+                        "Este profissional ainda não preencheu uma biografia.",
                     style: const TextStyle(fontSize: 16, height: 1.5),
                   ),
                   const SizedBox(height: 30),
-                  
+
                   // Botão de Contratação
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(double.infinity, 60),
                       backgroundColor: isOnline ? Colors.blue : Colors.grey,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
                     ),
-                    onPressed: isOnline ? () {
-                      // Lógica futura: Criar pedido ou abrir chat
-                      _mostrarConfirmacao(context);
-                    } : null,
+                    onPressed: isOnline
+                        ? () {
+                            // Lógica futura: Criar pedido ou abrir chat
+                            _enviarSolicitacao(context);
+                          }
+                        : null,
                     child: Text(
                       isOnline ? "Contratar Agora" : "Indisponível no Momento",
                       style: const TextStyle(fontSize: 18, color: Colors.white),
@@ -97,23 +111,82 @@ class DetalhesProfissional extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.circle, size: 10, color: isOnline ? Colors.green : Colors.grey),
+          Icon(
+            Icons.circle,
+            size: 10,
+            color: isOnline ? Colors.green : Colors.grey,
+          ),
           const SizedBox(width: 6),
           Text(
             isOnline ? "Disponível" : "Offline",
-            style: TextStyle(color: isOnline ? Colors.green.shade700 : Colors.grey.shade700, fontWeight: FontWeight.bold),
+            style: TextStyle(
+              color: isOnline ? Colors.green.shade700 : Colors.grey.shade700,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),
     );
   }
 
-  void _mostrarConfirmacao(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text("Solicitação enviada! O profissional entrará em contato."),
-        backgroundColor: Colors.green,
-      ),
+  Future<void> _enviarSolicitacao(BuildContext context) async {
+    final String? clienteId = FirebaseAuth.instance.currentUser?.uid;
+    final String? profissionalId = profissional['uid'];
+
+    debugPrint(
+      "Enviando solicitação para ${profissional['nome']} | "
+      "UID Profissional: $profissionalId | UID Cliente: $clienteId",
     );
+
+    if (clienteId == null || profissionalId == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro: Dados do usuário incompletos."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+      return;
+    }
+
+    try {
+      // Buscar nome do cliente no Firestore
+      final clienteDoc = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(clienteId)
+          .get();
+
+      final String clienteNome = clienteDoc.data()?['nome'] ?? 'Cliente';
+
+      await FirebaseFirestore.instance.collection('pedidos').add({
+        'clienteId': clienteId,
+        'profissionalId': profissionalId,
+        'clienteNome': clienteNome,
+        'profissionalNome': profissional['nome'] ?? 'Profissional',
+        'servico': profissional['profissao'],
+        'status': 'pendente',
+        'dataCriacao': FieldValue.serverTimestamp(),
+      });
+
+      debugPrint('Pedido criado com sucesso!');
+
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Pedido enviado com sucesso!"),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      debugPrint("Erro ao enviar pedido: $e");
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Erro ao enviar pedido: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
   }
 }

@@ -52,9 +52,9 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     } on FirebaseAuthException catch (e) {
       String mensagem = "Erro ao entrar";
-      if (e.code == 'user-not-found')
+      if (e.code == 'user-not-found') {
         mensagem = "Usuário não encontrado";
-      else if (e.code == 'wrong-password')
+      } else if (e.code == 'wrong-password')
         mensagem = "Senha incorreta";
 
       ScaffoldMessenger.of(context).showSnackBar(

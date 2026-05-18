@@ -12,19 +12,22 @@ class HomeProfissional extends StatefulWidget {
 
 class _HomeProfissionalState extends State<HomeProfissional> {
   final String? uid = FirebaseAuth.instance.currentUser?.uid;
-  bool _isOnline = false;
-  bool _statusCarregado = false;
 
   @override
   Widget build(BuildContext context) {
+    final String? currentUid = FirebaseAuth.instance.currentUser?.uid;
+    debugPrint("=== HomeProfissional BUILD ===");
+    debugPrint("Current User UID: $currentUid");
+    debugPrint("Widget UID: $uid");
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: FutureBuilder<DocumentSnapshot>(
-          future: FirebaseFirestore.instance
+        title: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance
               .collection('usuarios')
               .doc(uid)
-              .get(),
+              .snapshots(),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Text("Carregando...");
@@ -47,16 +50,17 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                   (route) => false,
                 );
               }
+              if (!context.mounted) return;
             },
             icon: const Icon(Icons.logout),
           ),
         ],
       ),
-      body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance
+      body: StreamBuilder<DocumentSnapshot>(
+        stream: FirebaseFirestore.instance
             .collection('usuarios')
             .doc(uid)
-            .get(),
+            .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -67,11 +71,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
           }
 
           var dados = snapshot.data!.data() as Map<String, dynamic>;
-
-          if (!_statusCarregado) {
-            _isOnline = dados['isOnline'] ?? false;
-            _statusCarregado = true;
-          }
+          bool isOnline = dados['isOnline'] ?? false;
 
           return SingleChildScrollView(
             padding: const EdgeInsets.all(20),
@@ -80,6 +80,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
               children: [
                 _buildStatusCard(
                   dados['nome'],
+                  isOnline,
                 ), // Agora este método existe abaixo!
                 const SizedBox(height: 24),
                 const Text(
@@ -112,31 +113,43 @@ class _HomeProfissionalState extends State<HomeProfissional> {
   }
 
   // MÉTODO QUE ESTAVA FALTANDO:
-  Widget _buildStatusCard(String nome) {
+  Widget _buildStatusCard(String nome, bool isOnline) {
     return Card(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       elevation: 2,
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: _isOnline ? Colors.green : Colors.grey,
+          backgroundColor: isOnline ? Colors.green : Colors.grey,
           radius: 8,
         ),
-        title: Text("$nome, você está ${_isOnline ? 'Online' : 'Offline'}"),
+        title: Text("$nome, você está ${isOnline ? 'Online' : 'Offline'}"),
         subtitle: Text(
-          _isOnline ? "Visível para novos clientes" : "Invisível para buscas",
+          isOnline ? "Visível para novos clientes" : "Invisível para buscas",
         ),
         trailing: Switch(
-          value: _isOnline,
+          value: isOnline,
           onChanged: (val) async {
-            setState(() => _isOnline = val);
+            debugPrint("Switch acionado! Novo valor: $val");
+
             try {
+              debugPrint("Atualizando Firestore para UID: $uid");
               await FirebaseFirestore.instance
                   .collection('usuarios')
                   .doc(uid)
                   .update({'isOnline': val});
+              debugPrint("Firestore atualizado com sucesso!");
             } catch (e) {
-              debugPrint("Erro ao atualizar status: $e");
+              debugPrint("ERRO ao atualizar Firestore: $e");
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text("Erro ao atualizar status: $e"),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+              }
             }
+            if (!mounted) return;
           },
         ),
       ),
@@ -190,43 +203,213 @@ class _HomeProfissionalState extends State<HomeProfissional> {
   }
 
   Widget _buildStatGrid() {
-    return GridView.count(
-      crossAxisCount: 2,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 16,
-      mainAxisSpacing: 16,
-      childAspectRatio: 1.5,
+    return Column(
       children: [
-        _buildStatCard("Total de Pedidos", "0", Icons.assignment, Colors.blue),
-        _buildStatCard("Avaliação", "N/A", Icons.star, Colors.orange),
-        _buildStatCard(
-          "Ganhos (Mês)",
-          "R\$ 0,00",
-          Icons.payments,
-          Colors.green,
+        // Primeira Linha de Cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                "Total de Pedidos",
+                "0",
+                Icons.assignment,
+                Colors.blue,
+              ),
+            ),
+            const SizedBox(width: 16), // Espaçamento horizontal entre os cards
+            Expanded(
+              child: _buildStatCard(
+                "Avaliação",
+                "N/A",
+                Icons.star,
+                Colors.amber,
+              ),
+            ),
+          ],
         ),
-        _buildStatCard("Pendentes", "0", Icons.pending_actions, Colors.red),
+        const SizedBox(height: 16), // Espaçamento vertical entre as linhas
+        // Segunda Linha de Cards
+        Row(
+          children: [
+            Expanded(
+              child: _buildStatCard(
+                "Ganhos (Mês)",
+                "R\$ 0,00",
+                Icons.payments,
+                Colors.green,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: _buildStatCard(
+                "Pendentes",
+                "0",
+                Icons.pending_actions,
+                Colors.red, // Use a cor que preferir aqui
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }
 
   Widget _buildOrderList() {
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: 2,
-      itemBuilder: (context, index) {
-        return Card(
-          margin: const EdgeInsets.only(top: 12),
-          child: ListTile(
-            title: Text("Instalação Elétrica - Exemplo ${index + 1}"),
-            subtitle: const Text("Bairro: Candelária • Hoje, 14:00"),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {},
-          ),
+    debugPrint("Procurando pedidos para profissional: $uid");
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('pedidos')
+          .where('profissionalId', isEqualTo: uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        debugPrint(
+          "StreamBuilder status: ${snapshot.connectionState}, "
+          "Tem dados: ${snapshot.hasData}, Docs: ${snapshot.data?.docs.length ?? 0}",
+        );
+
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text("Erro no banco: ${snapshot.error}"));
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 20),
+            child: Text(
+              "Nenhum pedido recebido ainda.",
+              style: TextStyle(color: Colors.grey),
+            ),
+          );
+        }
+
+        var pedidos = snapshot.data!.docs;
+        debugPrint("Carregados ${pedidos.length} pedidos para o profissional");
+
+        return Column(
+          children: pedidos.map((doc) {
+            try {
+              var pedido = doc.data() as Map<String, dynamic>? ?? {};
+              String pedidoId = doc.id;
+
+              String status = pedido['status']?.toString() ?? 'pendente';
+              String servico = pedido['servico']?.toString() ?? 'Geral';
+              String clienteNome =
+                  pedido['clienteNome']?.toString() ?? 'Usuário';
+
+              Color statusColor = Colors.orange;
+              if (status == 'aceito') statusColor = Colors.green;
+              if (status == 'recusado') statusColor = Colors.red;
+
+              debugPrint(
+                "Pedido $pedidoId: Cliente=$clienteNome, "
+                "Serviço=$servico, Status=$status",
+              );
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        leading: Icon(
+                          Icons.assignment,
+                          color: statusColor,
+                          size: 30,
+                        ),
+                        title: Text(
+                          "Serviço: $servico",
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          "Cliente: $clienteNome\nStatus: ${status.toUpperCase()}",
+                        ),
+                      ),
+                      if (status == 'pendente') ...[
+                        const SizedBox(height: 12),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextButton(
+                                onPressed: () =>
+                                    _alterarStatusPedido(pedidoId, 'recusado'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: Colors.red,
+                                ),
+                                child: const Text("Recusar"),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: ElevatedButton(
+                                onPressed: () =>
+                                    _alterarStatusPedido(pedidoId, 'aceito'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                ),
+                                child: const Text(
+                                  "Aceitar",
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              );
+            } catch (e) {
+              return Card(
+                color: Colors.red.shade50,
+                margin: const EdgeInsets.only(bottom: 12),
+                child: ListTile(
+                  leading: const Icon(Icons.error, color: Colors.red),
+                  title: const Text("Erro nos dados do card"),
+                  subtitle: Text(e.toString()),
+                ),
+              );
+            }
+          }).toList(),
         );
       },
     );
+  }
+
+  Future<void> _alterarStatusPedido(String pedidoId, String novoStatus) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('pedidos')
+          .doc(pedidoId)
+          .update({'status': novoStatus});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Pedido $novoStatus com sucesso!"),
+            backgroundColor: novoStatus == 'aceito' ? Colors.green : Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Erro ao atualizar pedido."),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 }

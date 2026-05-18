@@ -39,6 +39,7 @@ class _HomeClienteState extends State<HomeCliente> {
                   (route) => false,
                 );
               }
+              if (!context.mounted) return;
             },
           ),
         ],
@@ -85,8 +86,9 @@ class _HomeClienteState extends State<HomeCliente> {
                   .where('isCliente', isEqualTo: false)
                   .snapshots(),
               builder: (context, snapshot) {
-                if (snapshot.hasError)
+                if (snapshot.hasError) {
                   return Center(child: Text("Erro: ${snapshot.error}"));
+                }
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
                 }
@@ -115,6 +117,8 @@ class _HomeClienteState extends State<HomeCliente> {
                   itemCount: docs.length,
                   itemBuilder: (context, index) {
                     final dados = docs[index].data() as Map<String, dynamic>;
+                    dados['uid'] = docs[index]
+                        .id; // Adiciona o UID aos dados para uso futuro
                     final bool isOnline = dados['isOnline'] ?? false;
 
                     return Card(
@@ -160,6 +164,9 @@ class _HomeClienteState extends State<HomeCliente> {
                         ),
                         trailing: const Icon(Icons.chevron_right),
                         onTap: () {
+                          debugPrint(
+                            "Clicou no profissional: ${dados['nome']} (UID: ${dados['uid']})",
+                          );
                           Navigator.push(
                             context,
                             MaterialPageRoute(
