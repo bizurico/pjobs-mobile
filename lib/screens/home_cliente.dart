@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'login.dart';
 import 'detalhes_profissional.dart';
+import 'meus_pedidos.dart'; // Se estiverem na mesma pasta. Se não, ajuste o caminho relativo.
 
 class HomeCliente extends StatefulWidget {
   const HomeCliente({super.key});
@@ -26,22 +27,62 @@ class _HomeClienteState extends State<HomeCliente> {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text("PJobs Express"),
+        title: const Text("PJobs"),
+        backgroundColor: Colors.blue,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (context.mounted) {
-                Navigator.pushAndRemoveUntil(
+          PopupMenuButton<String>(
+            // Ícone elegante de Perfil no canto da AppBar
+            icon: const Icon(
+              Icons.account_circle,
+              color: Colors.white,
+              size: 30,
+            ),
+            tooltip: "Perfil",
+            onSelected: (value) async {
+              if (value == 'pedidos') {
+                // Navega para a tela de pedidos que criamos
+                Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
+                  MaterialPageRoute(
+                    builder: (context) => const MeusPedidosCliente(),
+                  ),
                 );
+              } else if (value == 'sair') {
+                // Lógica de deslogar do Firebase
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  // Empurra o usuário de volta para a tela de Login apagando o histórico de rotas
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/login',
+                  ); // Ajuste para a sua rota de login
+                }
               }
-              if (!context.mounted) return;
             },
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'pedidos',
+                child: Row(
+                  children: [
+                    Icon(Icons.assignment, color: Colors.black54),
+                    SizedBox(width: 10),
+                    Text('Meus Pedidos'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'sair',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text('Sair', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: Column(

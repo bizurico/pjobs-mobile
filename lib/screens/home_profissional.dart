@@ -42,20 +42,55 @@ class _HomeProfissionalState extends State<HomeProfissional> {
           },
         ),
         actions: [
-          IconButton(
-            onPressed: () async {
-              await FirebaseAuth.instance.signOut();
-              if (mounted) {
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
+          PopupMenuButton<String>(
+            icon: const Icon(
+              Icons.account_circle,
+              color: Colors.white,
+              size: 30,
+            ),
+            tooltip: "Perfil",
+            onSelected: (value) async {
+              if (value == 'pedidos') {
+                // Como ele já está no dashboard, você pode dar um feedback ou disparar um setState
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Você já está na tela de pedidos!"),
+                  ),
                 );
+              } else if (value == 'sair') {
+                await FirebaseAuth.instance.signOut();
+                if (context.mounted) {
+                  Navigator.pushReplacementNamed(
+                    context,
+                    '/login',
+                  ); // Ajuste para a sua rota de login
+                }
               }
-              if (!context.mounted) return;
             },
-            icon: const Icon(Icons.logout),
+            itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'pedidos',
+                child: Row(
+                  children: [
+                    Icon(Icons.dashboard, color: Colors.black54),
+                    SizedBox(width: 10),
+                    Text('Dashboard de Pedidos'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'sair',
+                child: Row(
+                  children: [
+                    Icon(Icons.logout, color: Colors.red),
+                    SizedBox(width: 10),
+                    Text('Sair', style: TextStyle(color: Colors.red)),
+                  ],
+                ),
+              ),
+            ],
           ),
+          const SizedBox(width: 8),
         ],
       ),
       body: StreamBuilder<DocumentSnapshot>(
