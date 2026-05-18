@@ -12,6 +12,8 @@ class HomeProfissional extends StatefulWidget {
 
 class _HomeProfissionalState extends State<HomeProfissional> {
   final String? uid = FirebaseAuth.instance.currentUser?.uid;
+  bool _statusCarregado = false;
+  bool _isOnline = false;
 
   @override
   Widget build(BuildContext context) {
@@ -61,51 +63,79 @@ class _HomeProfissionalState extends State<HomeProfissional> {
             .collection('usuarios')
             .doc(uid)
             .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
+        builder: (context, userSnapshot) {
+          if (userSnapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (!snapshot.hasData || !snapshot.data!.exists) {
+          if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
             return const Center(child: Text("Erro ao carregar perfil."));
           }
 
-          var dados = snapshot.data!.data() as Map<String, dynamic>;
-          bool isOnline = dados['isOnline'] ?? false;
+          var dados = userSnapshot.data!.data() as Map<String, dynamic>;
 
-          return SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildStatusCard(
-                  dados['nome'],
-                  isOnline,
-                ), // Agora este método existe abaixo!
-                const SizedBox(height: 24),
-                const Text(
-                  "Resumo de Hoje",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          if (!_statusCarregado) {
+            _isOnline = dados['isOnline'] ?? false;
+            _statusCarregado = true;
+          }
+
+          // LISTANDO OS PEDIDOS EM TEMPO REAL PARA TODA A TELA
+          return StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('pedidos')
+                .where('profissionalId', isEqualTo: uid)
+                .snapshots(),
+            builder: (context, orderSnapshot) {
+              // Captura a lista de documentos (se não houver nada, retorna uma lista vazia)
+              var pedidosDocs = orderSnapshot.data?.docs ?? [];
+
+              return SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildStatusCard(dados['nome'], _isOnline),
+                    const SizedBox(height: 24),
+                    const Text(
+                      "Resumo de Hoje",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // PASSANDO A LISTA DE PEDIDOS PARA O GRID CALCULAR OS NÚMEROS
+                    _buildStatGrid(pedidosDocs),
+
+                    const SizedBox(height: 24),
+                    const Text(
+                      "Sua Especialidade",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      dados['profissao'] ?? "Não informada",
+                      style: const TextStyle(fontSize: 16),
+                    ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      "Próximos Pedidos",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // REAPROVEITANDO OS DADOS NA LISTA
+                    _buildOrderList(),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                _buildStatGrid(),
-                const SizedBox(height: 24),
-                const Text(
-                  "Sua Especialidade",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                Text(
-                  dados['profissao'] ?? "Não informada",
-                  style: const TextStyle(fontSize: 16),
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  "Próximos Pedidos",
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                _buildOrderList(), // Usando o método que estava "esquecido"
-              ],
-            ),
+              );
+            },
           );
         },
       ),
@@ -202,39 +232,54 @@ class _HomeProfissionalState extends State<HomeProfissional> {
     );
   }
 
-  Widget _buildStatGrid() {
+  Widget _buildStatGrid(List<QueryDocumentSnapshot> pedidos) {
+    // 1. Total de Pedidos
+    int totalPedidos = pedidos.length;
+
+    // 2. Quantidade de Pendentes
+    int totalPendentes = pedidos.where((doc) {
+      var p = doc.data() as Map<String, dynamic>;
+      return p['status'] == 'pendente';
+    }).length;
+
+    // 3. Ganhos Estimados (Multiplicando cada serviço aceito por um valor base, ex: R$ 80)
+    // Se no futuro você adicionar o campo 'preco' no pedido, poderá somá-lo aqui de forma real
+    int totalAceitos = pedidos.where((doc) {
+      var p = doc.data() as Map<String, dynamic>;
+      return p['status'] == 'aceito';
+    }).length;
+    double ganhosEstimados = totalAceitos * 80.0;
+
     return Column(
       children: [
-        // Primeira Linha de Cards
         Row(
           children: [
             Expanded(
               child: _buildStatCard(
                 "Total de Pedidos",
-                "0",
+                totalPedidos.toString(),
                 Icons.assignment,
                 Colors.blue,
               ),
             ),
-            const SizedBox(width: 16), // Espaçamento horizontal entre os cards
+            const SizedBox(width: 16),
             Expanded(
               child: _buildStatCard(
                 "Avaliação",
                 "N/A",
                 Icons.star,
-                Colors.amber,
+                Colors.orange,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16), // Espaçamento vertical entre as linhas
-        // Segunda Linha de Cards
+        const SizedBox(height: 16),
         Row(
           children: [
             Expanded(
               child: _buildStatCard(
-                "Ganhos (Mês)",
-                "R\$ 0,00",
+                "Ganhos Estimados",
+                "R\$ ${ganhosEstimados.toStringAsFixed(2)}",
                 Icons.payments,
                 Colors.green,
               ),
@@ -243,9 +288,9 @@ class _HomeProfissionalState extends State<HomeProfissional> {
             Expanded(
               child: _buildStatCard(
                 "Pendentes",
-                "0",
+                totalPendentes.toString(),
                 Icons.pending_actions,
-                Colors.red, // Use a cor que preferir aqui
+                Colors.red,
               ),
             ),
           ],
@@ -388,24 +433,28 @@ class _HomeProfissionalState extends State<HomeProfissional> {
 
   Future<void> _alterarStatusPedido(String pedidoId, String novoStatus) async {
     try {
+      // Acessa a coleção 'pedidos', pega o documento pelo ID e atualiza o status
       await FirebaseFirestore.instance
           .collection('pedidos')
           .doc(pedidoId)
           .update({'status': novoStatus});
 
+      // Feedback visual para o profissional saber que deu certo
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Pedido $novoStatus com sucesso!"),
             backgroundColor: novoStatus == 'aceito' ? Colors.green : Colors.red,
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
+      print("Erro ao atualizar status: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Erro ao atualizar pedido."),
+            content: Text("Erro ao salvar alteração no banco."),
             backgroundColor: Colors.red,
           ),
         );
