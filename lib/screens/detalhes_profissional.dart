@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'chat_screen.dart';
 
 class DetalhesProfissional extends StatelessWidget {
   final Map<String, dynamic> profissional;
@@ -70,7 +71,35 @@ class DetalhesProfissional extends StatelessWidget {
                     style: const TextStyle(fontSize: 16, height: 1.5),
                   ),
                   const SizedBox(height: 30),
-
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      final String meuUid =
+                          FirebaseAuth.instance.currentUser!.uid;
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => ChatScreen(
+                            chatRoomId: "${meuUid}_${profissional['uid']}",
+                            // Passa os dados do profissional que você já tem nessa tela
+                            profissionalId: profissional['uid'],
+                            nomeContato: profissional['nome'],
+                          ),
+                        ),
+                      );
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blueGrey,
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 12,
+                        horizontal: 24,
+                      ),
+                    ),
+                    icon: const Icon(Icons.chat, color: Colors.white),
+                    label: const Text(
+                      "Conversar com Profissional",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
                   // Botão de Contratação
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(

@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'login.dart';
 import 'detalhes_profissional.dart';
 import 'meus_pedidos.dart'; // Se estiverem na mesma pasta. Se não, ajuste o caminho relativo.
+import 'lista_conversas.dart';
 
 class HomeCliente extends StatefulWidget {
   const HomeCliente({super.key});
@@ -31,7 +31,6 @@ class _HomeClienteState extends State<HomeCliente> {
         backgroundColor: Colors.blue,
         actions: [
           PopupMenuButton<String>(
-            // Ícone elegante de Perfil no canto da AppBar
             icon: const Icon(
               Icons.account_circle,
               color: Colors.white,
@@ -40,22 +39,27 @@ class _HomeClienteState extends State<HomeCliente> {
             tooltip: "Perfil",
             onSelected: (value) async {
               if (value == 'pedidos') {
-                // Navega para a tela de pedidos que criamos
+                // Rota de pedidos que já funcionava
                 Navigator.push(
                   context,
                   MaterialPageRoute(
                     builder: (context) => const MeusPedidosCliente(),
                   ),
                 );
+              } else if (value == 'mensagens') {
+                // <--- NOVO CAMINHO DO CLIENTE
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    // Passamos false porque aqui estamos na visão do Cliente
+                    builder: (context) =>
+                        const ListaConversasScreen(isProfissional: false),
+                  ),
+                );
               } else if (value == 'sair') {
-                // Lógica de deslogar do Firebase
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
-                  // Empurra o usuário de volta para a tela de Login apagando o histórico de rotas
-                  Navigator.pushReplacementNamed(
-                    context,
-                    '/login',
-                  ); // Ajuste para a sua rota de login
+                  Navigator.pushReplacementNamed(context, '/login');
                 }
               }
             },
@@ -67,6 +71,17 @@ class _HomeClienteState extends State<HomeCliente> {
                     Icon(Icons.assignment, color: Colors.black54),
                     SizedBox(width: 10),
                     Text('Meus Pedidos'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value:
+                    'mensagens', // <--- ÍCONE DE MENSAGENS NO MENU DO CLIENTE
+                child: Row(
+                  children: [
+                    Icon(Icons.chat_bubble_outline, color: Colors.black54),
+                    SizedBox(width: 10),
+                    Text('Mensagens'),
                   ],
                 ),
               ),

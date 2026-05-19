@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'login.dart';
+import 'lista_conversas.dart'; // Importe a tela de lista de conversas que criamos
 
 class HomeProfissional extends StatefulWidget {
   const HomeProfissional({super.key});
@@ -51,19 +51,25 @@ class _HomeProfissionalState extends State<HomeProfissional> {
             tooltip: "Perfil",
             onSelected: (value) async {
               if (value == 'pedidos') {
-                // Como ele já está no dashboard, você pode dar um feedback ou disparar um setState
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
                     content: Text("Você já está na tela de pedidos!"),
                   ),
                 );
+              } else if (value == 'mensagens') {
+                // <--- O TAPA ESTÁ AQUI!
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    // Passamos true porque aqui estamos na visão do Profissional
+                    builder: (context) =>
+                        const ListaConversasScreen(isProfissional: true),
+                  ),
+                );
               } else if (value == 'sair') {
                 await FirebaseAuth.instance.signOut();
                 if (context.mounted) {
-                  Navigator.pushReplacementNamed(
-                    context,
-                    '/login',
-                  ); // Ajuste para a sua rota de login
+                  Navigator.pushReplacementNamed(context, '/login');
                 }
               }
             },
@@ -75,6 +81,16 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                     Icon(Icons.dashboard, color: Colors.black54),
                     SizedBox(width: 10),
                     Text('Dashboard de Pedidos'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem<String>(
+                value: 'mensagens',
+                child: Row(
+                  children: [
+                    Icon(Icons.chat_bubble_outline, color: Colors.black54),
+                    SizedBox(width: 10),
+                    Text('Mensagens'),
                   ],
                 ),
               ),
