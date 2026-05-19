@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: use_build_context_synchronously, avoid_print
 
 import 'package:flutter/material.dart';
 import 'package:myapp/screens/home_cliente.dart';
@@ -25,6 +25,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
   final _senhaController = TextEditingController();
   final _cpfController = TextEditingController();
   final _bioController = TextEditingController();
+  final _telefoneController = TextEditingController();
+  final _enderecoController = TextEditingController();
 
   bool isCliente = true;
   String? categoriaSelecionada;
@@ -49,6 +51,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
               'email': _emailController.text,
               'isCliente': isCliente,
               'cpf': _cpfController.text,
+              'telefone': _telefoneController.text, // <-- NOVO
+              'endereco': _enderecoController.text, // <-- NOVO
+              'fotoPerfil': null,
               if (!isCliente) 'profissao': categoriaSelecionada,
               if (!isCliente) 'bio': _bioController.text,
               'createdAt': DateTime.now(),
@@ -245,6 +250,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
     _senhaController.dispose();
     _cpfController.dispose();
     _bioController.dispose();
+    _telefoneController.dispose();
+    _enderecoController.dispose();
     super.dispose();
   }
 }

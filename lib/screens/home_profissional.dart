@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'lista_conversas.dart'; // Importe a tela de lista de conversas que criamos
+import 'editar_perfil.dart'; // Importe a tela de edição de perfil
 
 class HomeProfissional extends StatefulWidget {
   const HomeProfissional({super.key});
@@ -71,9 +72,27 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                 if (context.mounted) {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
+              } else if (value == 'editar_perfil') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const EditarPerfilScreen(isProfissional: true),
+                  ),
+                );
               }
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'editar_perfil',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, color: Colors.black54),
+                    SizedBox(width: 10),
+                    Text('Editar Perfil'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'pedidos',
                 child: Row(

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'detalhes_profissional.dart';
 import 'meus_pedidos.dart'; // Se estiverem na mesma pasta. Se não, ajuste o caminho relativo.
 import 'lista_conversas.dart';
+import 'editar_perfil.dart';
 
 class HomeCliente extends StatefulWidget {
   const HomeCliente({super.key});
@@ -61,9 +62,27 @@ class _HomeClienteState extends State<HomeCliente> {
                 if (context.mounted) {
                   Navigator.pushReplacementNamed(context, '/login');
                 }
+              } else if (value == 'editar_perfil') {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) =>
+                        const EditarPerfilScreen(isProfissional: false),
+                  ),
+                );
               }
             },
             itemBuilder: (BuildContext context) => [
+              const PopupMenuItem<String>(
+                value: 'editar_perfil',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit, color: Colors.black54),
+                    SizedBox(width: 10),
+                    Text('Editar Perfil'),
+                  ],
+                ),
+              ),
               const PopupMenuItem<String>(
                 value: 'pedidos',
                 child: Row(
