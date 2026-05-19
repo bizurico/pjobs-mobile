@@ -79,7 +79,7 @@ class ProfissionalPage extends StatelessWidget {
           ),
           onPressed: () {
             // Aqui abriria o chat (RF12)
-            print("Abrindo chat com o profissional...");
+            debugPrint("Abrindo chat com o profissional...");
           },
           child: const Row(
             mainAxisAlignment: MainAxisAlignment.center,

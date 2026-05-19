@@ -109,7 +109,9 @@ class MeusPedidosCliente extends StatelessWidget {
                         ElevatedButton.icon(
                           onPressed: () {
                             // Aqui depois podemos integrar o link direto para o WhatsApp do profissional
-                            print("Abrindo conversa com o profissional...");
+                            debugPrint(
+                              "Abrindo conversa com o profissional...",
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: Colors.green,

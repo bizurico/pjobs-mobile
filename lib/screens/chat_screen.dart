@@ -31,15 +31,35 @@ class _ChatScreenState extends State<ChatScreen> {
 
   // Garante que o documento principal da conversa exista
   Future<void> _criarSalaSeNaoExistir() async {
-    // Usamos widget.chatRoomId direto
+    String idCliente = widget.chatRoomId.split('_')[0];
+    String nomeDoCliente = "Usuário Cliente"; // Fallback caso dê erro
+
+    try {
+      // 1. Vai na coleção onde os clientes estão salvos e pega o nome dele.
+      // ⚠️ ATENÇÃO: Se a sua coleção de usuários se chamar 'clientes' em vez de 'usuarios', altere a palavra abaixo!
+      var docUsuario = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(idCliente)
+          .get();
+
+      if (docUsuario.exists && docUsuario.data()!.containsKey('nome')) {
+        nomeDoCliente = docUsuario['nome'];
+        debugPrint("Nome do cliente encontrado: $nomeDoCliente");
+      }
+    } catch (e) {
+      debugPrint("Erro ao buscar nome do cliente: $e");
+    }
+
+    // 2. Agora sim, cria a sala salvando os DOIS nomes dentro do documento da conversa!
     await FirebaseFirestore.instance
         .collection('conversas')
         .doc(widget.chatRoomId)
         .set({
-          'clienteId': widget.chatRoomId.split(
-            '_',
-          )[0], // Pega a primeira parte do ID
+          'clienteId': idCliente,
           'profissionalId': widget.profissionalId,
+          'profissionalNome':
+              widget.nomeContato, // Nome de quem recebeu o clique
+          'nome': nomeDoCliente, // <--- SALVANDO O NOME 'luis' AQUI!
           'ultimaAtualizacao': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
   }

@@ -501,7 +501,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
         );
       }
     } catch (e) {
-      print("Erro ao atualizar status: $e");
+      debugPrint("Erro ao atualizar status: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

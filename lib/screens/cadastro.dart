@@ -60,7 +60,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
         _redirecionarUsuario();
       } catch (e) {
         if (!context.mounted) return;
-        print("Erro no cadastro: $e");
+        debugPrint("Erro no cadastro: $e");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro ao cadastrar: ${e.toString()}")),
         );
