@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_screen.dart';
+import 'solicitar_servico.dart';
 
 class DetalhesProfissional extends StatelessWidget {
   final Map<String, dynamic> profissional;
@@ -111,8 +111,20 @@ class DetalhesProfissional extends StatelessWidget {
                     ),
                     onPressed: isOnline
                         ? () {
-                            // Lógica futura: Criar pedido ou abrir chat
-                            _enviarSolicitacao(context);
+                            // Abre o modal de solicitação com formulário e fotos
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled:
+                                  true, // Permite que o modal cresça com o teclado
+                              shape: const RoundedRectangleBorder(
+                                borderRadius: BorderRadius.vertical(
+                                  top: Radius.circular(20),
+                                ),
+                              ),
+                              builder: (context) => SolicitarServicoModal(
+                                profissional: profissional,
+                              ),
+                            );
                           }
                         : null,
                     child: Text(
@@ -156,66 +168,5 @@ class DetalhesProfissional extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  Future<void> _enviarSolicitacao(BuildContext context) async {
-    final String? clienteId = FirebaseAuth.instance.currentUser?.uid;
-    final String? profissionalId = profissional['uid'];
-
-    debugPrint(
-      "Enviando solicitação para ${profissional['nome']} | "
-      "UID Profissional: $profissionalId | UID Cliente: $clienteId",
-    );
-
-    if (clienteId == null || profissionalId == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Erro: Dados do usuário incompletos."),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-      return;
-    }
-
-    try {
-      // Buscar nome do cliente no Firestore
-      final clienteDoc = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .doc(clienteId)
-          .get();
-
-      final String clienteNome = clienteDoc.data()?['nome'] ?? 'Cliente';
-
-      await FirebaseFirestore.instance.collection('pedidos').add({
-        'clienteId': clienteId,
-        'profissionalId': profissionalId,
-        'clienteNome': clienteNome,
-        'profissionalNome': profissional['nome'] ?? 'Profissional',
-        'servico': profissional['profissao'],
-        'status': 'pendente',
-        'dataCriacao': FieldValue.serverTimestamp(),
-      });
-
-      debugPrint('Pedido criado com sucesso!');
-
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("Pedido enviado com sucesso!"),
-          backgroundColor: Colors.green,
-        ),
-      );
-    } catch (e) {
-      debugPrint("Erro ao enviar pedido: $e");
-      if (!context.mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text("Erro ao enviar pedido: $e"),
-          backgroundColor: Colors.red,
-        ),
-      );
-    }
   }
 }
