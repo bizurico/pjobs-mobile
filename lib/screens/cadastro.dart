@@ -28,6 +28,18 @@ class _CadastroScreenState extends State<CadastroScreen> {
   final _telefoneController = TextEditingController();
   final _enderecoController = TextEditingController();
 
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _emailController.dispose();
+    _senhaController.dispose();
+    _cpfController.dispose();
+    _bioController.dispose();
+    _telefoneController.dispose();
+    _enderecoController.dispose();
+    super.dispose();
+  }
+
   bool isCliente = true;
   String? categoriaSelecionada;
 
@@ -47,17 +59,19 @@ class _CadastroScreenState extends State<CadastroScreen> {
             .collection('usuarios')
             .doc(userCredential.user!.uid)
             .set({
-              'nome': _nomeController.text,
-              'email': _emailController.text,
+              'nome': _nomeController.text.trim(),
+              'email': _emailController.text.trim(),
               'isCliente': isCliente,
-              'cpf': _cpfController.text,
-              'telefone': _telefoneController.text, // <-- NOVO
-              'endereco': _enderecoController.text, // <-- NOVO
+              'cpf': _cpfController.text.trim(),
+              'telefone': _telefoneController.text.trim(), // <-- NOVO
+              'endereco': _enderecoController.text.trim(), // <-- NOVO
               'fotoPerfil': null,
               if (!isCliente) 'profissao': categoriaSelecionada,
-              if (!isCliente) 'bio': _bioController.text,
-              'createdAt': DateTime.now(),
+              if (!isCliente) 'bio': _bioController.text.trim(),
+              'createdAt':
+                  FieldValue.serverTimestamp(), // Trocado para o horário oficial do servidor do Firebase
             });
+
         if (!context.mounted) return;
         print("Sucesso! Usuário salvo no banco de dados.");
 
@@ -149,7 +163,12 @@ class _CadastroScreenState extends State<CadastroScreen> {
   Widget _buildCamposComuns() {
     return Column(
       children: [
-        _buildTextField("Nome Completo", controller: _nomeController),
+        _buildTextField(
+          "Nome Completo",
+          controller: _nomeController,
+          validator: (value) =>
+              value == null || value.isEmpty ? "Nome é obrigatório" : null,
+        ),
         const SizedBox(height: 16),
         _buildTextField(
           "CPF",
@@ -166,9 +185,36 @@ class _CadastroScreenState extends State<CadastroScreen> {
           },
         ),
         const SizedBox(height: 16),
+
+        // --- NOVOS CAMPOS NA TELA ---
+        _buildTextField(
+          "Telefone (WhatsApp)",
+          controller: _telefoneController,
+          keyboardType: TextInputType.phone,
+          validator: (value) {
+            if (value == null || value.isEmpty)
+              return "O telefone é obrigatório";
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          "Endereço Completo",
+          controller: _enderecoController,
+          keyboardType: TextInputType.streetAddress,
+          validator: (value) {
+            if (value == null || value.isEmpty)
+              return "O endereço é obrigatório";
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+
+        // ----------------------------
         _buildTextField(
           "E-mail",
           controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
           validator: (value) {
             if (value == null || value.isEmpty) return "O e-mail é obrigatório";
             if (!value.contains("@")) return "Digite um e-mail válido";
@@ -188,7 +234,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
               return null;
             },
           ),
-        const SizedBox(height: 16),
+        if (!isCliente) const SizedBox(height: 16),
         _buildTextField(
           "Senha",
           controller: _senhaController,
@@ -241,17 +287,5 @@ class _CadastroScreenState extends State<CadastroScreen> {
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _nomeController.dispose();
-    _emailController.dispose();
-    _senhaController.dispose();
-    _cpfController.dispose();
-    _bioController.dispose();
-    _telefoneController.dispose();
-    _enderecoController.dispose();
-    super.dispose();
   }
 }
