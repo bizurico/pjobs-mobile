@@ -7,6 +7,8 @@ import '../core/constants.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
 
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
@@ -27,6 +29,8 @@ class _CadastroScreenState extends State<CadastroScreen> {
   final _bioController = TextEditingController();
   final _telefoneController = TextEditingController();
   final _enderecoController = TextEditingController();
+
+  String? _fotoBase64; // Para armazenar a foto convertida em Base64
 
   @override
   void dispose() {
@@ -65,7 +69,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
               'cpf': _cpfController.text.trim(),
               'telefone': _telefoneController.text.trim(), // <-- NOVO
               'endereco': _enderecoController.text.trim(), // <-- NOVO
-              'fotoPerfil': null,
+              'fotoPerfil': _fotoBase64,
               if (!isCliente) 'profissao': categoriaSelecionada,
               if (!isCliente) 'bio': _bioController.text.trim(),
               'createdAt':
@@ -84,6 +88,21 @@ class _CadastroScreenState extends State<CadastroScreen> {
           SnackBar(content: Text("Erro ao cadastrar: ${e.toString()}")),
         );
       }
+    }
+  }
+
+  Future<void> _escolherFoto() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 20,
+    );
+
+    if (image != null) {
+      List<int> imageBytes = await image.readAsBytes();
+      setState(() {
+        _fotoBase64 = base64Encode(imageBytes);
+      });
     }
   }
 
@@ -129,6 +148,35 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 onPressed: _cadastrarUsuario,
                 child: const Text("Finalizar Cadastro"),
               ),
+              const SizedBox(height: 24),
+              // WIDGET DA FOTO DE PERFIL
+              Center(
+                child: GestureDetector(
+                  onTap: _escolherFoto,
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage: _fotoBase64 != null
+                        ? MemoryImage(base64Decode(_fotoBase64!))
+                        : null,
+                    child: _fotoBase64 == null
+                        ? const Icon(
+                            Icons.add_a_photo,
+                            size: 40,
+                            color: Colors.grey,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  "Adicionar Foto (Opcional)",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -192,8 +240,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
           controller: _telefoneController,
           keyboardType: TextInputType.phone,
           validator: (value) {
-            if (value == null || value.isEmpty)
+            if (value == null || value.isEmpty) {
               return "O telefone é obrigatório";
+            }
             return null;
           },
         ),
@@ -203,8 +252,9 @@ class _CadastroScreenState extends State<CadastroScreen> {
           controller: _enderecoController,
           keyboardType: TextInputType.streetAddress,
           validator: (value) {
-            if (value == null || value.isEmpty)
+            if (value == null || value.isEmpty) {
               return "O endereço é obrigatório";
+            }
             return null;
           },
         ),

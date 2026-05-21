@@ -17,200 +17,139 @@ class _HomeProfissionalState extends State<HomeProfissional> {
   final String? uid = FirebaseAuth.instance.currentUser?.uid;
   bool _statusCarregado = false;
   bool _isOnline = false;
+  int _indiceAtual = 0;
 
   @override
   Widget build(BuildContext context) {
-    final String? currentUid = FirebaseAuth.instance.currentUser?.uid;
-    debugPrint("=== HomeProfissional BUILD ===");
-    debugPrint("Current User UID: $currentUid");
-    debugPrint("Widget UID: $uid");
+    // Lista das telas do Profissional
+    final List<Widget> abas = [
+      _buildAbaInicio(),
+      const ListaConversasScreen(
+        isProfissional: true,
+      ), // Reaproveitando a tela!
+      const Center(
+        child: Text("Meus Serviços (Em Construção)"),
+      ), // Tela de histórico do profissional
+      const EditarPerfilScreen(isProfissional: true), // Reaproveitando a tela!
+    ];
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: StreamBuilder<DocumentSnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('usuarios')
-              .doc(uid)
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return const Text("Carregando...");
-            }
-            if (snapshot.hasData && snapshot.data!.exists) {
-              var dados = snapshot.data!.data() as Map<String, dynamic>;
-              return Text("Olá, ${dados['nome']}");
-            }
-            return const Text("Painel do Profissional");
-          },
-        ),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(
-              Icons.account_circle,
-              color: Colors.white,
-              size: 30,
-            ),
-            tooltip: "Perfil",
-            onSelected: (value) async {
-              if (value == 'pedidos') {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text("Você já está na tela de pedidos!"),
-                  ),
-                );
-              } else if (value == 'mensagens') {
-                // <--- O TAPA ESTÁ AQUI!
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    // Passamos true porque aqui estamos na visão do Profissional
-                    builder: (context) =>
-                        const ListaConversasScreen(isProfissional: true),
-                  ),
-                );
-              } else if (value == 'sair') {
-                await FirebaseAuth.instance.signOut();
-                if (context.mounted) {
-                  Navigator.pushReplacementNamed(context, '/login');
-                }
-              } else if (value == 'editar_perfil') {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) =>
-                        const EditarPerfilScreen(isProfissional: true),
-                  ),
-                );
-              }
-            },
-            itemBuilder: (BuildContext context) => [
-              const PopupMenuItem<String>(
-                value: 'editar_perfil',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit, color: Colors.black54),
-                    SizedBox(width: 10),
-                    Text('Editar Perfil'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'pedidos',
-                child: Row(
-                  children: [
-                    Icon(Icons.dashboard, color: Colors.black54),
-                    SizedBox(width: 10),
-                    Text('Dashboard de Pedidos'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'mensagens',
-                child: Row(
-                  children: [
-                    Icon(Icons.chat_bubble_outline, color: Colors.black54),
-                    SizedBox(width: 10),
-                    Text('Mensagens'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem<String>(
-                value: 'sair',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, color: Colors.red),
-                    SizedBox(width: 10),
-                    Text('Sair', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
+      appBar: AppBar(title: const Text("Painel do Profissional"), elevation: 0),
+      body: abas[_indiceAtual],
+
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _indiceAtual,
+        onTap: (index) {
+          setState(() {
+            _indiceAtual = index;
+          });
+        },
+        type: BottomNavigationBarType.fixed,
+        backgroundColor: Colors.white,
+        selectedItemColor: Colors
+            .green, // Dica: Mudar a cor para o profissional ajuda a diferenciar do cliente visualmente
+        unselectedItemColor: Colors.grey.shade600,
+        showUnselectedLabels: true,
+        selectedFontSize: 12,
+        unselectedFontSize: 12,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.work_outline),
+            activeIcon: Icon(Icons.work),
+            label: "Demandas",
           ),
-          const SizedBox(width: 8),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            activeIcon: Icon(Icons.chat_bubble),
+            label: "Mensagens",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history_outlined),
+            activeIcon: Icon(Icons.history),
+            label: "Meus Serviços",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person_outline),
+            activeIcon: Icon(Icons.person),
+            label: "Perfil",
+          ),
         ],
       ),
-      body: StreamBuilder<DocumentSnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('usuarios')
-            .doc(uid)
-            .snapshots(),
-        builder: (context, userSnapshot) {
-          if (userSnapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+    );
+  }
 
-          if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-            return const Center(child: Text("Erro ao carregar perfil."));
-          }
+  Widget _buildAbaInicio() {
+    return StreamBuilder<DocumentSnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(uid)
+          .snapshots(),
+      builder: (context, userSnapshot) {
+        if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-          var dados = userSnapshot.data!.data() as Map<String, dynamic>;
+        if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
+          return const Center(child: Text("Erro ao carregar perfil."));
+        }
 
-          if (!_statusCarregado) {
-            _isOnline = dados['isOnline'] ?? false;
-            _statusCarregado = true;
-          }
+        var dados = userSnapshot.data!.data() as Map<String, dynamic>;
 
-          // LISTANDO OS PEDIDOS EM TEMPO REAL PARA TODA A TELA
-          return StreamBuilder<QuerySnapshot>(
-            stream: FirebaseFirestore.instance
-                .collection('pedidos')
-                .where('profissionalId', isEqualTo: uid)
-                .snapshots(),
-            builder: (context, orderSnapshot) {
-              // Captura a lista de documentos (se não houver nada, retorna uma lista vazia)
-              var pedidosDocs = orderSnapshot.data?.docs ?? [];
+        if (!_statusCarregado) {
+          _isOnline = dados['isOnline'] ?? false;
+          _statusCarregado = true;
+        }
 
-              return SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildStatusCard(dados['nome'], _isOnline),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "Resumo de Hoje",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+        // LISTANDO OS PEDIDOS EM TEMPO REAL PARA TODA A TELA
+        return StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('pedidos')
+              .where('profissionalId', isEqualTo: uid)
+              .snapshots(),
+          builder: (context, orderSnapshot) {
+            // Captura a lista de documentos (se não houver nada, retorna uma lista vazia)
+            var pedidosDocs = orderSnapshot.data?.docs ?? [];
 
-                    // PASSANDO A LISTA DE PEDIDOS PARA O GRID CALCULAR OS NÚMEROS
-                    _buildStatGrid(pedidosDocs),
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildStatusCard(dados['nome'], _isOnline),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Resumo de Hoje",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
 
-                    const SizedBox(height: 24),
-                    const Text(
-                      "Sua Especialidade",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      dados['profissao'] ?? "Não informada",
-                      style: const TextStyle(fontSize: 16),
-                    ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "Próximos Pedidos",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
+                  // PASSANDO A LISTA DE PEDIDOS PARA O GRID CALCULAR OS NÚMEROS
+                  _buildStatGrid(pedidosDocs),
 
-                    // REAPROVEITANDO OS DADOS NA LISTA
-                    _buildOrderList(),
-                  ],
-                ),
-              );
-            },
-          );
-        },
-      ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Sua Especialidade",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  Text(
+                    dados['profissao'] ?? "Não informada",
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 24),
+                  const Text(
+                    "Próximos Pedidos",
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // REAPROVEITANDO OS DADOS NA LISTA
+                  _buildOrderList(),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

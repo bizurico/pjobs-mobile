@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'chat_screen.dart';
 import 'solicitar_servico.dart';
+import 'dart:convert';
 
 class DetalhesProfissional extends StatelessWidget {
   final Map<String, dynamic> profissional;
@@ -29,11 +30,23 @@ class DetalhesProfissional extends StatelessWidget {
                     child: CircleAvatar(
                       radius: 60,
                       backgroundColor: Colors.blue.shade50,
-                      child: const Icon(
-                        Icons.person,
-                        size: 80,
-                        color: Colors.blue,
-                      ),
+                      // A MÁGICA ESTÁ AQUI: Usa MemoryImage e base64Decode
+                      backgroundImage:
+                          (profissional['fotoPerfil'] != null &&
+                              profissional['fotoPerfil'].toString().isNotEmpty)
+                          ? MemoryImage(
+                              base64Decode(profissional['fotoPerfil']),
+                            )
+                          : null,
+                      child:
+                          (profissional['fotoPerfil'] == null ||
+                              profissional['fotoPerfil'].toString().isEmpty)
+                          ? const Icon(
+                              Icons.person,
+                              size: 80,
+                              color: Colors.blue,
+                            )
+                          : null,
                     ),
                   ),
                   const SizedBox(height: 16),
