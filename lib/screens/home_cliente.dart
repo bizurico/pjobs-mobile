@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:myapp/screens/historico_screen.dart';
 import 'detalhes_profissional.dart';
 import 'meus_pedidos.dart'; // Se estiverem na mesma pasta. Se não, ajuste o caminho relativo.
 import 'lista_conversas.dart';
@@ -41,13 +42,9 @@ class _HomeClienteState extends State<HomeCliente> {
     // O índice 0 chama a função com o seu código antigo. Os outros 3 são "telas falsas" por enquanto.
     final List<Widget> abas = [
       _buildAbaInicio(),
-      const ListaConversasScreen(
-        isProfissional: false,
-      ), // Substitua pelo nome exato que você deu na classe
-      const MeusPedidosCliente(), // Substitua pelo nome exato que você deu na classe
-      const EditarPerfilScreen(
-        isProfissional: false,
-      ), // Substitua pelo nome exato que você deu na classe
+      const ListaConversasScreen(isProfissional: false),
+      const HistoricoScreen(isProfissional: false), // <--- TELA PLUGADA AQUI
+      const EditarPerfilScreen(isProfissional: false),
     ];
 
     return Scaffold(

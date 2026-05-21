@@ -5,6 +5,7 @@ import 'lista_conversas.dart'; // Importe a tela de lista de conversas que criam
 import 'editar_perfil.dart'; // Importe a tela de edição de perfil
 import 'chat_screen.dart'; // Importe a tela de chat para abrir a conversa diretamente do card de pedido
 import 'dart:convert'; // <--- Adicione este import para usar o base64Encode
+import 'historico_screen.dart'; // Importe a tela de histórico do profissional
 
 class HomeProfissional extends StatefulWidget {
   const HomeProfissional({super.key});
@@ -24,13 +25,9 @@ class _HomeProfissionalState extends State<HomeProfissional> {
     // Lista das telas do Profissional
     final List<Widget> abas = [
       _buildAbaInicio(),
-      const ListaConversasScreen(
-        isProfissional: true,
-      ), // Reaproveitando a tela!
-      const Center(
-        child: Text("Meus Serviços (Em Construção)"),
-      ), // Tela de histórico do profissional
-      const EditarPerfilScreen(isProfissional: true), // Reaproveitando a tela!
+      const ListaConversasScreen(isProfissional: true),
+      const HistoricoScreen(isProfissional: true), // <--- TELA PLUGADA AQUI
+      const EditarPerfilScreen(isProfissional: true),
     ];
 
     return Scaffold(
