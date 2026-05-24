@@ -3,7 +3,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:myapp/screens/historico_screen.dart';
 import 'detalhes_profissional.dart';
-import 'meus_pedidos.dart'; // Se estiverem na mesma pasta. Se não, ajuste o caminho relativo.
 import 'lista_conversas.dart';
 import 'editar_perfil.dart';
 import '../core/constants.dart'; // Importe o arquivo de constantes para usar as chaves definidas lá
@@ -205,90 +204,134 @@ class _HomeClienteState extends State<HomeCliente> {
                     String status = dados['status'] ?? 'aguardando_orcamento';
                     double valor = (dados['valorProposto'] ?? 0.0).toDouble();
 
-                    return Card(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              descricao,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              "Profissional: $proNome",
-                              style: TextStyle(color: Colors.grey.shade700),
-                            ),
-                            Text(
-                              "Status: ${status.replaceAll('_', ' ').toUpperCase()}",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w500,
-                                color: Colors.blueGrey,
-                              ),
-                            ),
-
-                            if (status == 'aguardando_aprovacao_cliente') ...[
-                              const Divider(height: 20),
-                              Text(
-                                "Orçamento Recebido: R\$ ${valor.toStringAsFixed(2)}",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.green,
-                                  fontSize: 16,
-                                ),
-                              ),
-                              const SizedBox(height: 12),
+                    return GestureDetector(
+                      onTap: () =>
+                          mostrarDetalhesCompletosPedido(context, dados),
+                      child: Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // 🔥 ESSA ROW FAZ A MÁGICA DE JOGAR PARA OS CANTOS
                               Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                crossAxisAlignment: CrossAxisAlignment
+                                    .center, // Centraliza verticalmente o título com o texto menor
                                 children: [
+                                  // Lado Esquerdo: O Título (com Expanded para não quebrar se o texto for gigante)
                                   Expanded(
-                                    child: OutlinedButton(
-                                      onPressed: () => FirebaseFirestore
-                                          .instance
-                                          .collection('pedidos')
-                                          .doc(pedidoDoc.id)
-                                          .update({'status': 'recusado'}),
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(
-                                          color: Colors.red,
-                                        ),
+                                    child: Text(
+                                      descricao,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
                                       ),
-                                      child: const Text(
-                                        "Recusar",
-                                        style: TextStyle(color: Colors.red),
-                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: ElevatedButton(
-                                      onPressed: () => FirebaseFirestore
-                                          .instance
-                                          .collection('pedidos')
-                                          .doc(pedidoDoc.id)
-                                          .update({'status': 'em_andamento'}),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.green,
+
+                                  const SizedBox(
+                                    width: 8,
+                                  ), // Pequeno respiro entre o título e a dica
+                                  // Lado Direito: A dica de toque e a setinha agrupadas em outra Row menor
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        "Toque para saber mais",
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.grey.shade500,
+                                          fontStyle: FontStyle.italic,
+                                        ),
                                       ),
-                                      child: const Text(
-                                        "Aceitar Preço",
-                                        style: TextStyle(color: Colors.white),
+                                      const SizedBox(
+                                        width: 4,
+                                      ), // Espaço entre o texto e o ícone >
+                                      Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: 12,
+                                        color: Colors.grey.shade500,
                                       ),
-                                    ),
+                                    ],
                                   ),
                                 ],
                               ),
+
+                              // 🔥 Daqui para baixo continua o resto do seu card normal (Nome do Profissional, Status, etc.)
+                              const SizedBox(height: 6),
+                              Text(
+                                "Profissional: $proNome",
+                                style: TextStyle(color: Colors.grey.shade700),
+                              ),
+                              Text(
+                                "Status: ${status.replaceAll('_', ' ').toUpperCase()}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.blueGrey,
+                                ),
+                              ),
+
+                              if (status == 'aguardando_aprovacao_cliente') ...[
+                                const Divider(height: 20),
+                                Text(
+                                  "Orçamento Recebido: R\$ ${valor.toStringAsFixed(2)}",
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.green,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton(
+                                        onPressed: () => FirebaseFirestore
+                                            .instance
+                                            .collection('pedidos')
+                                            .doc(pedidoDoc.id)
+                                            .update({'status': 'recusado'}),
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(
+                                            color: Colors.red,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "Recusar",
+                                          style: TextStyle(color: Colors.red),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: ElevatedButton(
+                                        onPressed: () => FirebaseFirestore
+                                            .instance
+                                            .collection('pedidos')
+                                            .doc(pedidoDoc.id)
+                                            .update({'status': 'em_andamento'}),
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.green,
+                                        ),
+                                        child: const Text(
+                                          "Aceitar Preço",
+                                          style: TextStyle(color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                       ),
                     );

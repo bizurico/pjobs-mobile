@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'login.dart';
 import 'dart:typed_data';
 import 'dart:convert';
 import 'package:flutter/material.dart';
@@ -416,12 +417,17 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: () async {
+                        // 1. Desloga oficialmente do Firebase Auth
                         await FirebaseAuth.instance.signOut();
+
                         if (context.mounted) {
-                          Navigator.pushNamedAndRemoveUntil(
+                          // 2. Limpa TODA a pilha de telas e joga para o Login
+                          Navigator.pushAndRemoveUntil(
                             context,
-                            '/login',
-                            (route) => false,
+                            MaterialPageRoute(
+                              builder: (context) => const LoginScreen(),
+                            ), // 🔥 Troque 'LoginScreen' pelo nome exato da sua classe de Login
+                            (route) => false, // Esvazia a pilha completamente
                           );
                         }
                       },
