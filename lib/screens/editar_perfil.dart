@@ -8,6 +8,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import '../core/constants.dart';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:http/http.dart' as http;
 
 class EditarPerfilScreen extends StatefulWidget {
   final bool isProfissional;
@@ -51,6 +53,35 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     super.initState();
     _categorias = List<String>.from(AppConstants.categorias);
     _carregarDadosAtuais();
+  }
+
+  // 🔥 Certifique-se de que este método está colado DENTRO da classe _EditarPerfilScreenState
+  Future<List<String>> _buscarSugestoesGoogle(String textoDigitado) async {
+    if (textoDigitado.isEmpty || textoDigitado.length < 3) {
+      return [];
+    }
+
+    const String apiKey = "AIzaSyCPl210ZIzVG0LjWZWy_JEhvaluSW3MVJA";
+    final String url =
+        "https://maps.googleapis.com/maps/api/place/autocomplete/json"
+        "?input=${Uri.encodeComponent(textoDigitado)}"
+        "&key=$apiKey"
+        "&components=country:br"
+        "&language=pt-BR";
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      debugPrint("DEBUG GOOGLE: ${response.body}");
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List predictions = data['predictions'] ?? [];
+        return predictions.map((p) => p['description'].toString()).toList();
+      }
+    } catch (e) {
+      debugPrint("Erro no Google Places do Perfil: $e");
+    }
+
+    return [];
   }
 
   Future<void> _carregarDadosAtuais() async {
@@ -302,15 +333,60 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                           value!.isEmpty ? "Preencha este campo" : null,
                     ),
                     const SizedBox(height: 15),
-                    TextFormField(
+                    TypeAheadField<String>(
                       controller: _enderecoController,
-                      maxLines: 2,
-                      decoration: const InputDecoration(
-                        labelText: "Endereço Completo",
-                        border: OutlineInputBorder(),
+                      builder: (context, typeAheadController, focusNode) {
+                        return TextFormField(
+                          controller: typeAheadController,
+                          focusNode: focusNode,
+                          maxLines:
+                              2, // Mantive as 2 linhas que você já usava aqui
+                          decoration: const InputDecoration(
+                            labelText: "Endereço Completo",
+                            prefixIcon: Icon(
+                              Icons.location_on,
+                              color: Colors.red,
+                            ),
+                            border: OutlineInputBorder(),
+                          ),
+                          validator: (value) => value == null || value.isEmpty
+                              ? "Preencha este campo"
+                              : null,
+                        );
+                      },
+                      suggestionsCallback: (search) async {
+                        return await _buscarSugestoesGoogle(search);
+                      },
+                      itemBuilder: (context, String sugestaoEndereco) {
+                        return ListTile(
+                          leading: const Icon(
+                            Icons.place,
+                            color: Colors.blueGrey,
+                          ),
+                          title: Text(
+                            sugestaoEndereco,
+                            style: const TextStyle(fontSize: 14),
+                          ),
+                        );
+                      },
+                      onSelected: (String sugestaoSelecionada) {
+                        setState(() {
+                          _enderecoController.text = sugestaoSelecionada;
+                        });
+                      },
+                      loadingBuilder: (context) => const Padding(
+                        padding: EdgeInsets.all(8.0),
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
                       ),
-                      validator: (value) =>
-                          value!.isEmpty ? "Preencha este campo" : null,
+                      emptyBuilder: (context) => const Padding(
+                        padding: EdgeInsets.all(16.0),
+                        child: Text(
+                          "Nenhum endereço encontrado.",
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ),
                     ),
                     const SizedBox(height: 20),
 

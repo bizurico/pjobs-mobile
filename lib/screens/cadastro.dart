@@ -9,6 +9,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:convert';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:http/http.dart' as http;
 
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
@@ -46,6 +48,26 @@ class _CadastroScreenState extends State<CadastroScreen> {
 
   bool isCliente = true;
   String? categoriaSelecionada;
+
+  Future<List<String>> _buscarSugestoesGoogle(String textoDigitado) async {
+    if (textoDigitado.isEmpty || textoDigitado.length < 3) return [];
+    const String apiKey = "AIzaSyCPl210ZIzVG0LjWZWy_JEhvaluSW3MVJA";
+    final String url =
+        "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${Uri.encodeComponent(textoDigitado)}&key=$apiKey&components=country:br&language=pt-BR";
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      print("DEBUG GOOGLE: ${response.body}");
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List predictions = data['predictions'] ?? [];
+        return predictions.map((p) => p['description'].toString()).toList();
+      }
+    } catch (e) {
+      print("Erro: $e");
+    }
+    return [];
+  }
 
   // Lógica para salvar no Firebase
   Future<void> _cadastrarUsuario() async {
@@ -247,16 +269,11 @@ class _CadastroScreenState extends State<CadastroScreen> {
           },
         ),
         const SizedBox(height: 16),
-        _buildTextField(
-          "Endereço Completo",
+        _buildAddressField(
           controller: _enderecoController,
-          keyboardType: TextInputType.streetAddress,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return "O endereço é obrigatório";
-            }
-            return null;
-          },
+          label: "Endereço Completo",
+          validator: (value) =>
+              value == null || value.isEmpty ? "Endereço é obrigatório" : null,
         ),
         const SizedBox(height: 16),
 
@@ -335,6 +352,52 @@ class _CadastroScreenState extends State<CadastroScreen> {
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
+  }
+
+  // 2. O SEU NOVO MOTOR EXCLUSIVO PARA ENDEREÇO (Com o Autocomplete do Google)
+  Widget _buildAddressField({
+    required TextEditingController controller,
+    String label = "Endereço Completo",
+    String? Function(String?)? validator,
+  }) {
+    return TypeAheadField<String>(
+      controller: controller,
+      builder: (context, typeAheadController, focusNode) {
+        return TextFormField(
+          controller: typeAheadController,
+          focusNode: focusNode,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: const Icon(Icons.location_on, color: Colors.red),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      },
+      suggestionsCallback: (search) async {
+        return await _buscarSugestoesGoogle(search);
+      },
+      itemBuilder: (context, String sugestaoEndereco) {
+        return ListTile(
+          leading: const Icon(Icons.place, color: Colors.blueGrey),
+          title: Text(sugestaoEndereco, style: const TextStyle(fontSize: 14)),
+        );
+      },
+      onSelected: (String sugestaoSelecionada) {
+        controller.text = sugestaoSelecionada;
+      },
+      loadingBuilder: (context) => const Padding(
+        padding: EdgeInsets.all(8.0),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      emptyBuilder: (context) => const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text(
+          "Nenhum endereço encontrado.",
+          style: TextStyle(color: Colors.grey),
+        ),
       ),
     );
   }

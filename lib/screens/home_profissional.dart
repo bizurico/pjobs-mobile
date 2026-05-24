@@ -10,6 +10,7 @@ import 'dart:convert'; // <--- Adicione este import para usar o base64Encode
 import 'historico_screen.dart'; // Importe a tela de histórico do profissional
 import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
+import 'package:url_launcher/url_launcher.dart';
 
 class HomeProfissional extends StatefulWidget {
   const HomeProfissional({super.key});
@@ -27,238 +28,150 @@ class _HomeProfissionalState extends State<HomeProfissional> {
   void _mostrarDialogConclusao(
     BuildContext context, {
     required String pedidoId,
-    String? fotoSolicitacao,
   }) {
-    // Variáveis de estado do diálogo
-    Uint8List? fotoAntesBytes;
     Uint8List? fotoDepoisBytes;
-    bool reutilizouFotoCliente = false;
-
-    // Se o cliente já enviou uma foto, podemos começar sugerindo o uso dela
-    if (fotoSolicitacao != null && fotoSolicitacao.isNotEmpty) {
-      fotoAntesBytes = base64Decode(fotoSolicitacao);
-      reutilizouFotoCliente = true;
-    }
+    bool enviando = false;
 
     showDialog(
       context: context,
-      barrierDismissible:
-          false, // Força o profissional a concluir ou cancelar de verdade
-      builder: (context) {
-        // O StatefulBuilder permite atualizar o visual das fotos DENTRO do popup
+      barrierDismissible: false,
+      builder: (dialogContext) {
         return StatefulBuilder(
           builder: (context, setPopupState) {
-            Future<void> escolherFoto(bool isAntes) async {
-              final picker = ImagePicker();
-              final XFile? image = await picker.pickImage(
-                source: ImageSource.camera,
-                imageQuality: 20,
-              );
-
-              if (image != null) {
-                final bytes = await image.readAsBytes();
-                setPopupState(() {
-                  if (isAntes) {
-                    fotoAntesBytes = bytes;
-                    reutilizouFotoCliente = false;
-                  } else {
-                    fotoDepoisBytes = bytes;
-                  }
-                });
-              }
-            }
-
             return AlertDialog(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(16),
               ),
               title: const Text(
-                "Evidências do Serviço",
+                "Finalizar Serviço",
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      "Para finalizar, anexe as fotos de comprovação:",
-                    ),
-                    const SizedBox(height: 20),
-
-                    // --- SEÇÃO: FOTO DE ANTES ---
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Antes do Serviço:",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => escolherFoto(true),
-                      child: Container(
-                        height: 120,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                          image: fotoAntesBytes != null
-                              ? DecorationImage(
-                                  image: MemoryImage(fotoAntesBytes!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: fotoAntesBytes == null
-                            ? const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_a_photo,
-                                    color: Colors.grey,
-                                    size: 32,
-                                  ),
-                                  Text(
-                                    "Tirar foto do 'Antes'",
-                                    style: TextStyle(
-                                      color: Colors.grey,
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : Align(
-                                alignment: Alignment.bottomRight,
-                                child: Container(
-                                  padding: const EdgeInsets.all(4),
-                                  margin: const EdgeInsets.all(6),
-                                  color: Colors.black54,
-                                  child: Text(
-                                    reutilizouFotoCliente
-                                        ? "Usando foto do chamado"
-                                        : "Nova foto alterada",
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 20),
-
-                    // --- SEÇÃO: FOTO DE DEPOIS ---
-                    const Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        "Depois do Serviço (Obrigatório):",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => escolherFoto(false),
-                      child: Container(
-                        height: 120,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade100,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.grey.shade300),
-                          image: fotoDepoisBytes != null
-                              ? DecorationImage(
-                                  image: MemoryImage(fotoDepoisBytes!),
-                                  fit: BoxFit.cover,
-                                )
-                              : null,
-                        ),
-                        child: fotoDepoisBytes == null
-                            ? const Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    Icons.add_a_photo,
-                                    color: Colors.blue,
-                                    size: 32,
-                                  ),
-                                  Text(
-                                    "Tirar foto do 'Depois'",
-                                    style: TextStyle(
-                                      color: Colors.blue,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    "Tire a foto do serviço concluído para comprovação de entrega:",
+                  ),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: enviando
+                        ? null
+                        : () async {
+                            final picker = ImagePicker();
+                            final XFile? image = await picker.pickImage(
+                              source: ImageSource.camera,
+                              imageQuality: 20,
+                            );
+                            if (image != null) {
+                              final bytes = await image.readAsBytes();
+                              setPopupState(() {
+                                fotoDepoisBytes = bytes;
+                              });
+                            }
+                          },
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300),
+                        image: fotoDepoisBytes != null
+                            ? DecorationImage(
+                                image: MemoryImage(fotoDepoisBytes!),
+                                fit: BoxFit.cover,
                               )
                             : null,
                       ),
+                      child: fotoDepoisBytes == null
+                          ? const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.add_a_photo,
+                                  color: Colors.green,
+                                  size: 40,
+                                ),
+                                Text(
+                                  "Registrar Foto do 'Depois'",
+                                  style: TextStyle(
+                                    color: Colors.green,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : null,
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text(
-                    "Voltar",
-                    style: TextStyle(color: Colors.grey),
+                if (enviando)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else ...[
+                  TextButton(
+                    onPressed: () => Navigator.pop(dialogContext),
+                    child: const Text(
+                      "Voltar",
+                      style: TextStyle(color: Colors.grey),
+                    ),
                   ),
-                ),
-                ElevatedButton(
-                  onPressed: (fotoAntesBytes == null || fotoDepoisBytes == null)
-                      ? null
-                      : () async {
-                          // Se faltar foto, o botão fica desabilitado nativamente pelo Flutter
+                  ElevatedButton(
+                    onPressed: fotoDepoisBytes == null
+                        ? null
+                        : () async {
+                            setPopupState(() => enviando = true);
+                            try {
+                              String strDepois = base64Encode(fotoDepoisBytes!);
 
-                          // Mostra tela de carregamento interna
-                          setPopupState(() {});
+                              await FirebaseFirestore.instance
+                                  .collection('pedidos')
+                                  .doc(pedidoId)
+                                  .update({
+                                    'status': 'concluido',
+                                    'fotoDepois': strDepois,
+                                    'dataConclusao':
+                                        FieldValue.serverTimestamp(),
+                                  });
 
-                          try {
-                            // Converte os blocos de bytes para String Base64 para persistência no Firestore
-                            String strAntes = base64Encode(fotoAntesBytes!);
-                            String strDepois = base64Encode(fotoDepoisBytes!);
+                              if (dialogContext.mounted) {
+                                Navigator.pop(dialogContext);
+                              }
 
-                            await FirebaseFirestore.instance
-                                .collection('pedidos')
-                                .doc(pedidoId)
-                                .update({
-                                  'status': 'concluido',
-                                  'fotoAntes': strAntes,
-                                  'fotoDepois': strDepois,
-                                  'dataConclusao': FieldValue.serverTimestamp(),
-                                });
-
-                            Navigator.pop(
-                              context,
-                            ); // Fecha o popup de evidências
-
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Serviço concluído com sucesso!"),
-                                backgroundColor: Colors.green,
-                              ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Erro ao finalizar: $e"),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                          }
-                        },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    "Serviço concluído com sucesso!",
+                                  ),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
+                            } catch (e) {
+                              setPopupState(() => enviando = false);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Erro ao finalizar: $e"),
+                                  backgroundColor: Colors.red,
+                                ),
+                              );
+                            }
+                          },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                    ),
+                    child: const Text(
+                      "Confirmar Entrega",
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
-                  child: const Text(
-                    "Confirmar Entrega",
-                    style: TextStyle(color: Colors.white),
-                  ),
-                ),
+                ],
               ],
             );
           },
@@ -368,7 +281,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                   const SizedBox(height: 12),
 
                   // PASSANDO A LISTA DE PEDIDOS PARA O GRID CALCULAR OS NÚMEROS
-                  _buildStatGrid(pedidosDocs),
+                  buildStatGrid(pedidosDocs),
 
                   const SizedBox(height: 24),
                   const Text(
@@ -487,23 +400,34 @@ class _HomeProfissionalState extends State<HomeProfissional> {
     );
   }
 
-  Widget _buildStatGrid(List<QueryDocumentSnapshot> pedidos) {
-    // 1. Total de Pedidos
-    int totalPedidos = pedidos.length;
+  Widget buildStatGrid(List<QueryDocumentSnapshot> pedidos) {
+    // 1. Total de Pedidos: Filtra para contar APENAS os concluídos
+    int totalPedidos = pedidos.where((doc) {
+      var p = doc.data() as Map<String, dynamic>;
+      return p['status'] == 'concluido';
+    }).length;
 
-    // 2. Quantidade de Pendentes
+    // 2. Quantidade de Pendentes: Tudo que não for concluído ou recusado é um trabalho ativo
     int totalPendentes = pedidos.where((doc) {
       var p = doc.data() as Map<String, dynamic>;
-      return p['status'] == 'pendente';
+      var status = p['status'] ?? 'pendente';
+      return status != 'concluido' && status != 'recusado';
     }).length;
 
-    // 3. Ganhos Estimados (Multiplicando cada serviço aceito por um valor base, ex: R$ 80)
-    // Se no futuro você adicionar o campo 'preco' no pedido, poderá somá-lo aqui de forma real
-    int totalAceitos = pedidos.where((doc) {
-      var p = doc.data() as Map<String, dynamic>;
-      return p['status'] == 'aceito';
-    }).length;
-    double ganhosEstimados = totalAceitos * 80.0;
+    // 3. Ganhos Estimados: Soma real baseada no campo 'valorProposto' dos serviços concluídos
+    double ganhosEstimados = pedidos
+        .where((doc) {
+          var p = doc.data() as Map<String, dynamic>;
+          return p['status'] == 'concluido';
+        })
+        .fold(0.0, (soma, doc) {
+          var p = doc.data() as Map<String, dynamic>;
+          // Puxa o valor do orçamento aprovado (valorProposto)
+          var valor = p['valorProposto'] ?? 0.0;
+
+          if (valor is num) return soma + valor.toDouble();
+          return soma + (double.tryParse(valor.toString()) ?? 0.0);
+        });
 
     return Column(
       children: [
@@ -521,7 +445,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
             Expanded(
               child: _buildStatCard(
                 "Avaliação",
-                "N/A",
+                "N/A", // Mantido conforme seu padrão atual do PDF
                 Icons.star,
                 Colors.orange,
               ),
@@ -585,10 +509,17 @@ class _HomeProfissionalState extends State<HomeProfissional> {
             ),
           );
         }
+        var todosOsPedidos = snapshot.data!.docs;
+        var pedidos = todosOsPedidos.where((doc) {
+          var dados = doc.data() as Map<String, dynamic>;
+          var status = dados['status'] ?? 'pendente';
+          // Só deixa passar para a Home se NÃO estiver concluído e NÃO estiver recusado
+          return status != 'concluido' && status != 'recusado';
+        }).toList();
 
-        var pedidos = snapshot.data!.docs;
-        debugPrint("Carregados ${pedidos.length} pedidos para o profissional");
-
+        debugPrint(
+          "Carregados ${pedidos.length} pedidos ativos para a home do profissional",
+        );
         return Column(
           children: pedidos.map((doc) {
             try {
@@ -673,6 +604,79 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                           ),
                         ),
 
+                        if (status == 'em_andamento' ||
+                            status == 'iniciado') ...[
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              // Pegamos o endereço real do cliente que está salvo no documento do pedido
+                              String enderecoCliente =
+                                  dados['enderecoCliente'] ?? '';
+
+                              if (enderecoCliente.isNotEmpty) {
+                                // Codifica o texto do endereço para formato de URL (remove espaços e caracteres especiais)
+                                final query = Uri.encodeComponent(
+                                  enderecoCliente,
+                                );
+
+                                // URL universal que força o telemóvel a abrir o app de GPS nativo em modo de navegação/rota
+                                final googleMapsUrl = Uri.parse(
+                                  "https://www.google.com/maps/search/?api=1&query=$query",
+                                );
+
+                                try {
+                                  if (await canLaunchUrl(googleMapsUrl)) {
+                                    await launchUrl(
+                                      googleMapsUrl,
+                                      mode: LaunchMode.externalApplication,
+                                    );
+                                  } else {
+                                    throw 'Não foi possível abrir o mapa.';
+                                  }
+                                } catch (e) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text("Erro ao abrir GPS: $e"),
+                                      backgroundColor: Colors.red,
+                                    ),
+                                  );
+                                }
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "O cliente não informou um endereço válido.",
+                                    ),
+                                    backgroundColor: Colors.orange,
+                                  ),
+                                );
+                              }
+                            },
+                            icon: const Icon(
+                              Icons.navigation,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              "Ver Rota no GPS",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors
+                                  .blueGrey
+                                  .shade700, // Cor neutra para destacar dos botões de ação principal
+                              minimumSize: const Size(double.infinity, 45),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(
+                            height: 8,
+                          ), // Pequeno espaço antes do botão de Iniciar/Concluir
+                        ],
+
                         // Só mostra os botões se o status for aguardando_orcamento (ou pendente, dependendo de como você salvou antes)
                         // Só mostra os botões se o status for aguardando_orcamento ou pendente
                         if (status == 'aguardando_orcamento' ||
@@ -742,11 +746,40 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
                             onPressed: () {
+                              _mostrarDialogInicioServico(
+                                context,
+                                pedidoId: pedidoId,
+                                fotoSolicitacao: dados['fotoSolicitacao'],
+                              );
+                            },
+                            icon: const Icon(
+                              Icons.play_arrow,
+                              color: Colors.white,
+                            ),
+                            label: const Text(
+                              "Iniciar Serviço",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.blue.shade700,
+                              minimumSize: const Size(double.infinity, 45),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ]
+                        // 2. SE O SERVIÇO JÁ FOI INICIADO: MOSTRA O BOTÃO DE "CONCLUIR"
+                        else if (status == 'iniciado') ...[
+                          const SizedBox(height: 8),
+                          ElevatedButton.icon(
+                            onPressed: () {
                               _mostrarDialogConclusao(
                                 context,
-                                pedidoId:
-                                    pedidoId, // Se 'pedido' for um QueryDocumentSnapshot, use pedido.id
-                                fotoSolicitacao: dados['fotoSolicitacao'],
+                                pedidoId: pedidoId,
                               );
                             },
                             icon: const Icon(
@@ -851,4 +884,182 @@ class _HomeProfissionalState extends State<HomeProfissional> {
       ),
     );
   }
+}
+
+void _mostrarDialogInicioServico(
+  BuildContext context, {
+  required String pedidoId,
+  String? fotoSolicitacao,
+}) {
+  Uint8List? fotoAntesBytes;
+  bool reutilizouFotoCliente = false;
+  bool enviando = false;
+
+  // Preenche opcionalmente com a foto que o cliente mandou na abertura
+  if (fotoSolicitacao != null && fotoSolicitacao.isNotEmpty) {
+    fotoAntesBytes = base64Decode(fotoSolicitacao);
+    reutilizouFotoCliente = true;
+  }
+
+  showDialog(
+    context: context,
+    barrierDismissible: false,
+    builder: (dialogContext) {
+      return StatefulBuilder(
+        builder: (context, setPopupState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            title: const Text(
+              "Iniciar Trabalho",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Tire uma foto do estado atual do local/objeto antes de começar o serviço:",
+                ),
+                const SizedBox(height: 20),
+                GestureDetector(
+                  onTap: enviando
+                      ? null
+                      : () async {
+                          final picker = ImagePicker();
+                          final XFile? image = await picker.pickImage(
+                            source: ImageSource.camera,
+                            imageQuality: 20,
+                          );
+                          if (image != null) {
+                            final bytes = await image.readAsBytes();
+                            setPopupState(() {
+                              fotoAntesBytes = bytes;
+                              reutilizouFotoCliente = false;
+                            });
+                          }
+                        },
+                  child: Container(
+                    height: 150,
+                    width: double.infinity,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade300),
+                      image: fotoAntesBytes != null
+                          ? DecorationImage(
+                              image: MemoryImage(fotoAntesBytes!),
+                              fit: BoxFit.cover,
+                            )
+                          : null,
+                    ),
+                    child: fotoAntesBytes == null
+                        ? const Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.camera_alt,
+                                color: Colors.blue,
+                                size: 40,
+                              ),
+                              Text(
+                                "Registrar Foto do 'Antes'",
+                                style: TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ],
+                          )
+                        : Align(
+                            alignment: Alignment.bottomRight,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              margin: const EdgeInsets.all(6),
+                              color: Colors.black54,
+                              child: Text(
+                                reutilizouFotoCliente
+                                    ? "Foto da solicitação"
+                                    : "Nova foto capturada",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ),
+                  ),
+                ),
+              ],
+            ),
+            actions: [
+              if (enviando)
+                const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              else ...[
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text(
+                    "Voltar",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  onPressed: fotoAntesBytes == null
+                      ? null
+                      : () async {
+                          setPopupState(() => enviando = true);
+                          try {
+                            String strAntes = base64Encode(fotoAntesBytes!);
+
+                            await FirebaseFirestore.instance
+                                .collection('pedidos')
+                                .doc(pedidoId)
+                                .update({
+                                  'status': 'iniciado',
+                                  'fotoAntes': strAntes,
+                                  'dataInicioTrabalho':
+                                      FieldValue.serverTimestamp(),
+                                });
+
+                            if (dialogContext.mounted) {
+                              Navigator.pop(dialogContext);
+                            }
+
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  "Serviço iniciado! Bom trabalho.",
+                                ),
+                                backgroundColor: Colors.blue,
+                              ),
+                            );
+                          } catch (e) {
+                            setPopupState(() => enviando = false);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text("Erro ao iniciar: $e"),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
+                        },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue),
+                  child: const Text(
+                    "Iniciar Agora",
+                    style: TextStyle(color: Colors.white),
+                  ),
+                ),
+              ],
+            ],
+          );
+        },
+      );
+    },
+  );
 }

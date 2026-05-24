@@ -40,6 +40,9 @@ dependencies:
   cloud_firestore: ^6.3.0
   image_picker: ^1.0.7
   firebase_storage: ^13.4.1
+  url_launcher: ^6.3.2
+  flutter_typeahead: ^6.0.0
+  http: ^1.6.0
 
 dev_dependencies:
   flutter_test:

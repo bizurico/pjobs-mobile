@@ -189,11 +189,34 @@ class _HomeClienteState extends State<HomeCliente> {
                   );
                 }
 
-                var pedidos = snapshot.data!.docs;
+                // 1. Primeiro pegamos todos os documentos puros vindos do banco
+                var todosOsPedidos = snapshot.data!.docs;
+
+                // 2. 🔥 O FILTRO: Deixa passar apenas o que NÃO está concluído ou recusado
+                // Usamos o .toLowerCase() para garantir que trate tanto 'concluido' quanto 'CONCLUIDO'
+                var pedidos = todosOsPedidos.where((doc) {
+                  var dados = doc.data() as Map<String, dynamic>;
+                  var status = (dados['status'] ?? 'pendente')
+                      .toString()
+                      .toLowerCase();
+                  return status != 'concluido' &&
+                      status != 'concluído' &&
+                      status != 'recusado';
+                }).toList();
+
+                // 3. VALIDAÇÃO EXTRA: Se o cliente tiver pedidos no banco, mas TODOS já estiverem finalizados
+                if (pedidos.isEmpty) {
+                  return const Text(
+                    "Nenhum serviço em andamento no momento.",
+                    style: TextStyle(color: Colors.grey),
+                  );
+                }
+
+                // 4. O seu ListView original continua exatamente igual, mas agora lê a lista filtrada!
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
-                  itemCount: pedidos.length,
+                  itemCount: pedidos.length, // Usa o tamanho da lista filtrada
                   itemBuilder: (context, index) {
                     var pedidoDoc = pedidos[index];
                     var dados = pedidoDoc.data() as Map<String, dynamic>;
@@ -203,7 +226,6 @@ class _HomeClienteState extends State<HomeCliente> {
                         dados['profissionalNome'] ?? 'Profissional';
                     String status = dados['status'] ?? 'aguardando_orcamento';
                     double valor = (dados['valorProposto'] ?? 0.0).toDouble();
-
                     return GestureDetector(
                       onTap: () =>
                           mostrarDetalhesCompletosPedido(context, dados),
