@@ -1,3 +1,5 @@
+// ignore_for_file: use_build_context_synchronously
+
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -201,7 +203,8 @@ class _HomeClienteState extends State<HomeCliente> {
                       .toLowerCase();
                   return status != 'concluido' &&
                       status != 'concluído' &&
-                      status != 'recusado';
+                      status != 'recusado' &&
+                      status != 'cancelado';
                 }).toList();
 
                 // 3. VALIDAÇÃO EXTRA: Se o cliente tiver pedidos no banco, mas TODOS já estiverem finalizados
@@ -352,6 +355,115 @@ class _HomeClienteState extends State<HomeCliente> {
                                   ],
                                 ),
                               ],
+                              // 🔥 BOTÃO DE CANCELAR PARA O CLIENTE (Antes do início do trabalho)
+                              if (status == 'pendente' ||
+                                  status == 'aguardando_orcamento' ||
+                                  status == 'em_andamento') ...[
+                                const SizedBox(height: 12),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: OutlinedButton.icon(
+                                    // No home_cliente.dart, dentro do botão "Cancelar Solicitação"
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        barrierDismissible: false,
+                                        builder: (dialogContext) => AlertDialog(
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                          title: const Text(
+                                            "Cancelar Solicitação",
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          content: const Text(
+                                            "Deseja mesmo cancelar este pedido? Se o profissional já enviou um orçamento, ele será descartado.",
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(dialogContext),
+                                              child: const Text(
+                                                "Voltar",
+                                                style: TextStyle(
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                            ElevatedButton(
+                                              onPressed: () async {
+                                                Navigator.pop(
+                                                  dialogContext,
+                                                ); // Fecha o pop-up
+
+                                                // Executa a alteração no Firebase usando o ID do documento do cliente
+                                                await FirebaseFirestore.instance
+                                                    .collection('pedidos')
+                                                    .doc(
+                                                      pedidoDoc.id,
+                                                    ) // Variável que representa o documento atual na sua lista
+                                                    .update({
+                                                      'status': 'cancelado',
+                                                    });
+
+                                                if (context.mounted) {
+                                                  ScaffoldMessenger.of(
+                                                    context,
+                                                  ).showSnackBar(
+                                                    const SnackBar(
+                                                      content: Text(
+                                                        "Solicitação cancelada.",
+                                                      ),
+                                                      backgroundColor:
+                                                          Colors.red,
+                                                    ),
+                                                  );
+                                                }
+                                              },
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: Colors.red,
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                ),
+                                              ),
+                                              child: const Text(
+                                                "Confirmar",
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                    icon: const Icon(
+                                      Icons.delete_forever,
+                                      color: Colors.red,
+                                      size: 18,
+                                    ),
+                                    label: const Text(
+                                      "Cancelar Solicitação",
+                                      style: TextStyle(
+                                        color: Colors.red,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    style: OutlinedButton.styleFrom(
+                                      side: const BorderSide(color: Colors.red),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         ),
@@ -365,7 +477,6 @@ class _HomeClienteState extends State<HomeCliente> {
             // ==========================================================
             // MODO 2: RESULTADOS DA BUSCA (QUANDO O CLIENTE DIGITA ALGO)
             // ==========================================================
-            // MODO 2: RESULTADOS DA BUSCA (QUANDO O CLIENTE DIGITA ALGO)
           ] else ...[
             Text(
               "Resultados para '$_textoPesquisa'",

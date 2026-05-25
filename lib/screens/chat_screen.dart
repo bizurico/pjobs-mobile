@@ -26,31 +26,49 @@ class _ChatScreenState extends State<ChatScreen> {
   void initState() {
     super.initState();
 
-    _criarSalaSeNaoExistir();
+    criarSalaSeNaoExistir();
   }
 
   // Garante que o documento principal da conversa exista
-  Future<void> _criarSalaSeNaoExistir() async {
+  Future<void> criarSalaSeNaoExistir() async {
     String idCliente = widget.chatRoomId.split('_')[0];
     String nomeDoCliente = "Usuário Cliente"; // Fallback caso dê erro
+    String nomeDoProfissional = "Profissional"; // Fallback caso dê erro
+    String fotoDoCliente = "";
+    String fotoDoProfissional = "";
 
     try {
-      // 1. Vai na coleção onde os clientes estão salvos e pega o nome dele.
-      // ⚠️ ATENÇÃO: Se a sua coleção de usuários se chamar 'clientes' em vez de 'usuarios', altere a palavra abaixo!
+      // 1. Busca os dados do CLIENTE (Nome e Foto) direto do banco
       var docUsuario = await FirebaseFirestore.instance
           .collection('usuarios')
           .doc(idCliente)
           .get();
 
-      if (docUsuario.exists && docUsuario.data()!.containsKey('nome')) {
-        nomeDoCliente = docUsuario['nome'];
-        debugPrint("Nome do cliente encontrado: $nomeDoCliente");
+      if (docUsuario.exists) {
+        var dadosCli = docUsuario.data() as Map<String, dynamic>;
+        nomeDoCliente = dadosCli['nome'] ?? 'Cliente';
+        fotoDoCliente = dadosCli['fotoPerfil'] ?? '';
       }
+
+      // 2. 🔥 CORREÇÃO: Busca os dados do PROFISSIONAL (Nome e Foto) direto do banco
+      var docPro = await FirebaseFirestore.instance
+          .collection('usuarios')
+          .doc(widget.profissionalId)
+          .get();
+
+      if (docPro.exists) {
+        var dadosPro = docPro.data() as Map<String, dynamic>;
+        nomeDoProfissional =
+            dadosPro['nome'] ?? 'Profissional'; // 🔥 Puxa o nome real do Pro!
+        fotoDoProfissional = dadosPro['fotoPerfil'] ?? '';
+      }
+
+      debugPrint("Dados do chat sincronizados direto do banco com sucesso!");
     } catch (e) {
-      debugPrint("Erro ao buscar nome do cliente: $e");
+      debugPrint("Erro ao buscar dados dos usuários para o chat: $e");
     }
 
-    // 2. Agora sim, cria a sala salvando os DOIS nomes dentro do documento da conversa!
+    // 3. Grava a sala salvando os dados de AMBOS de forma 100% correta
     await FirebaseFirestore.instance
         .collection('conversas')
         .doc(widget.chatRoomId)
@@ -58,8 +76,12 @@ class _ChatScreenState extends State<ChatScreen> {
           'clienteId': idCliente,
           'profissionalId': widget.profissionalId,
           'profissionalNome':
-              widget.nomeContato, // Nome de quem recebeu o clique
-          'nome': nomeDoCliente, // <--- SALVANDO O NOME 'luis' AQUI!
+              nomeDoProfissional, // 🔥 Agora sim! Salva o nome certo do profissional
+          'clienteNome':
+              nomeDoCliente, // 🔥 Agora sim! Salva o nome certo do cliente
+          'nome': nomeDoCliente, // Mantido por compatibilidade antiga
+          'clienteFoto': fotoDoCliente,
+          'profissionalFoto': fotoDoProfissional,
           'ultimaAtualizacao': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
   }

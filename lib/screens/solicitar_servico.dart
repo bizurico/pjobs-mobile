@@ -92,6 +92,10 @@ class _SolicitarServicoModalState extends State<SolicitarServicoModal> {
 
       String meuNome = docCliente.data()?['nome'] ?? 'Cliente';
       debugPrint("👤 [CLIENTE] Nome definido para o pedido: $meuNome");
+      String meuEndereco =
+          docCliente.data()?['enderecoCliente'] ??
+          docCliente.data()?['endereco'] ??
+          '';
 
       debugPrint(
         "📋 [DADOS MAP] Verificando dados do profissional que vieram da outra tela: ${widget.profissional}",
@@ -103,6 +107,7 @@ class _SolicitarServicoModalState extends State<SolicitarServicoModal> {
       await FirebaseFirestore.instance.collection('pedidos').add({
         'clienteId': meuUid,
         'clienteNome': meuNome,
+        'enderecoCliente': meuEndereco,
         'profissionalId': widget.profissional['uid'] ?? '',
         'profissionalNome': widget.profissional['nome'] ?? 'Profissional',
         'profissao':

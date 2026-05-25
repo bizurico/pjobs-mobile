@@ -514,7 +514,9 @@ class _HomeProfissionalState extends State<HomeProfissional> {
           var dados = doc.data() as Map<String, dynamic>;
           var status = dados['status'] ?? 'pendente';
           // Só deixa passar para a Home se NÃO estiver concluído e NÃO estiver recusado
-          return status != 'concluido' && status != 'recusado';
+          return status != 'concluido' &&
+              status != 'recusado' &&
+              status != 'cancelado';
         }).toList();
 
         debugPrint(
@@ -597,7 +599,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                           style: TextStyle(color: Colors.grey.shade700),
                         ),
                         Text(
-                          "Status: ${status.toUpperCase()}",
+                          "Status: ${status.replaceAll('_', ' ').toUpperCase()}", // 🔥 Remove o underline e coloca um espaço
                           style: const TextStyle(
                             color: Colors.blueGrey,
                             fontWeight: FontWeight.bold,
@@ -608,6 +610,9 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                             status == 'iniciado') ...[
                           ElevatedButton.icon(
                             onPressed: () async {
+                              debugPrint(
+                                "DEBUG BOTAO ROTA - DADOS COMPLETOS DO PEDIDO: $dados",
+                              );
                               // Pegamos o endereço real do cliente que está salvo no documento do pedido
                               String enderecoCliente =
                                   dados['enderecoCliente'] ?? '';
@@ -740,7 +745,110 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                             ],
                           ),
                         ],
+                        // 🔥 BOTÃO DE CANCELAR PARA O PROFISSIONAL (Antes de iniciar o serviço)
+                        if (status == 'pendente' ||
+                            status == 'aguardando_orcamento' ||
+                            status == 'em_andamento') ...[
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: () {
+                                showDialog(
+                                  context: context,
+                                  barrierDismissible:
+                                      false, // Força o usuário a clicar em uma das opções
+                                  builder: (dialogContext) => AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(16),
+                                    ),
+                                    title: const Text(
+                                      "Confirmar Cancelamento",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    content: const Text(
+                                      "Tem certeza absoluta que deseja cancelar este serviço? O cliente será notificado.",
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(
+                                          dialogContext,
+                                        ), // Fecha apenas o pop-up
+                                        child: const Text(
+                                          "Voltar",
+                                          style: TextStyle(color: Colors.grey),
+                                        ),
+                                      ),
+                                      ElevatedButton(
+                                        onPressed: () async {
+                                          Navigator.pop(
+                                            dialogContext,
+                                          ); // Fecha o pop-up primeiro
 
+                                          // Executa a alteração no Firebase usando o ID correto do pedido
+                                          await FirebaseFirestore.instance
+                                              .collection('pedidos')
+                                              .doc(
+                                                pedidoId,
+                                              ) // Variável já existente no seu map do card
+                                              .update({'status': 'cancelado'});
+
+                                          if (context.mounted) {
+                                            ScaffoldMessenger.of(
+                                              context,
+                                            ).showSnackBar(
+                                              const SnackBar(
+                                                content: Text(
+                                                  "Serviço cancelado com sucesso.",
+                                                ),
+                                                backgroundColor: Colors.red,
+                                              ),
+                                            );
+                                          }
+                                        },
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.red,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "Sim, Cancelar",
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                              icon: const Icon(
+                                Icons.cancel_outlined,
+                                color: Colors.red,
+                                size: 18,
+                              ),
+                              label: const Text(
+                                "Cancelar Serviço",
+                                style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              style: OutlinedButton.styleFrom(
+                                side: const BorderSide(color: Colors.red),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                         // DENTRO DO SEU CARD DE DEMANDAS, NA ÁREA DE BOTÕES:
                         if (status == 'em_andamento') ...[
                           const SizedBox(height: 8),

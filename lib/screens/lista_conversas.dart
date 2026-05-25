@@ -1,3 +1,4 @@
+import 'dart:convert'; // 🔥 Import necessário para o base64Decode
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -53,16 +54,21 @@ class ListaConversasScreen extends StatelessWidget {
             itemBuilder: (context, index) {
               var conversaDoc = conversas[index];
               var dados = conversaDoc.data() as Map<String, dynamic>;
-              String roomId = conversaDoc
-                  .id; // O ID correto do documento (ex: clienteId_profId)
+              String roomId = conversaDoc.id;
 
-              // Identifica quem é o profissional e quem é o cliente na sala
+              // Resgata os dados brutos salvos no documento da sala
               String proId = dados['profissionalId'] ?? '';
               String proNome = dados['profissionalNome'] ?? 'Profissional';
+              String clienteNome =
+                  dados['clienteNome'] ?? dados['nome'] ?? 'Usuário Cliente';
 
-              // Se o display name do cliente for nulo, usamos um fallback melhor ou o ID reduzido
-              String clienteNome = dados['nome'] ?? 'Usuário Cliente';
+              // 🔥 MÁGICA DA INVERSÃO: Define os dados de quem vai aparecer com base em "quem sou eu"
               String nomeExibicao = isProfissional ? clienteNome : proNome;
+
+              // 🔥 Puxa a foto correspondente do outro contato salva na sala
+              String fotoBase64 = isProfissional
+                  ? (dados['clienteFoto'] ?? '')
+                  : (dados['profissionalFoto'] ?? '');
 
               return Card(
                 margin: const EdgeInsets.only(bottom: 8),
@@ -74,15 +80,22 @@ class ListaConversasScreen extends StatelessWidget {
                     backgroundColor: isProfissional
                         ? Colors.teal.shade100
                         : Colors.blue.shade100,
-                    child: Text(
-                      nomeExibicao.isNotEmpty
-                          ? nomeExibicao[0].toUpperCase()
-                          : 'U',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        color: isProfissional ? Colors.teal : Colors.blue,
-                      ),
-                    ),
+                    // 🔥 Injeta a foto decodificada se ela existir no banco
+                    backgroundImage: fotoBase64.isNotEmpty
+                        ? MemoryImage(base64Decode(fotoBase64))
+                        : null,
+                    // Se não houver foto, renderiza a inicial do nome como fallback
+                    child: fotoBase64.isEmpty
+                        ? Text(
+                            nomeExibicao.isNotEmpty
+                                ? nomeExibicao[0].toUpperCase()
+                                : 'U',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: isProfissional ? Colors.teal : Colors.blue,
+                            ),
+                          )
+                        : null,
                   ),
                   title: Text(
                     nomeExibicao,
@@ -105,12 +118,9 @@ class ListaConversasScreen extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (context) => ChatScreen(
-                          chatRoomId:
-                              roomId, // Usando a variável que já existe na linha 52!
-                          profissionalId:
-                              proId, // Usando a variável que você definiu acima
-                          nomeContato:
-                              nomeExibicao, // Usando a variável que você definiu acima
+                          chatRoomId: roomId,
+                          profissionalId: proId,
+                          nomeContato: nomeExibicao,
                         ),
                       ),
                     );
