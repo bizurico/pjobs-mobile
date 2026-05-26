@@ -67,6 +67,49 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _recuperarSenha() async {
+    // Pega o e-mail digitado no controller do seu input de e-mail
+    String email = _emailController.text
+        .trim(); // 👈 Verifique se o seu controller tem esse nome
+
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Por favor, digite seu e-mail no campo acima para redefinir a senha.",
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    try {
+      // 🔥 Comando Mágico do Firebase Auth
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "E-mail de recuperação enviado! Verifique sua caixa de entrada e o spam.",
+          ),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 6),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Erro ao enviar e-mail de recuperação: $e"),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -100,7 +143,23 @@ class _LoginScreenState extends State<LoginScreen> {
                 border: OutlineInputBorder(),
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 8), // Pequeno respiro
+            // 🔥 LINK DE ESQUECI A SENHA
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton(
+                onPressed: _recuperarSenha, // Aciona a função que criamos acima
+                child: Text(
+                  "Esqueci a senha",
+                  style: TextStyle(
+                    color: Colors.blue.shade700,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             _carregando
                 ? const CircularProgressIndicator()
                 : ElevatedButton(
