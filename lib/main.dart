@@ -7,6 +7,7 @@ import 'firebase_options.dart';
 import 'screens/home_cliente.dart';
 import 'screens/home_profissional.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'screens/splash_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,7 +27,7 @@ class PJobsApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
 
       // A Home aponta para a tela de Login por enquanto
-      home: const LoginScreen(),
+      home: const SplashScreen(),
     );
   }
 }

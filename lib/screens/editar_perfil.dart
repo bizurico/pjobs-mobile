@@ -13,38 +13,35 @@ import 'package:http/http.dart' as http;
 
 class EditarPerfilScreen extends StatefulWidget {
   final bool isProfissional;
-
   const EditarPerfilScreen({super.key, required this.isProfissional});
 
   @override
-  State<EditarPerfilScreen> createState() => _EditarPerfilScreenState();
+  State<EditarPerfilScreen> createState() => EditarPerfilScreenState();
 }
 
-class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
-  final _formKey = GlobalKey<FormState>();
+class EditarPerfilScreenState extends State<EditarPerfilScreen> {
+  final formKey = GlobalKey<FormState>();
 
   // Controladores dos campos cadastrais
   final TextEditingController _nomeController = TextEditingController();
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _telefoneController = TextEditingController();
-  final TextEditingController _enderecoController = TextEditingController();
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController telefoneController = TextEditingController();
+  final TextEditingController enderecoController = TextEditingController();
 
   // Controladores exclusivos para a troca de senha
-  final TextEditingController _senhaAntigaController = TextEditingController();
-  final TextEditingController _senhaNovaController = TextEditingController();
-  final TextEditingController _confirmarSenhaController =
+  final TextEditingController senhaAntigaController = TextEditingController();
+  final TextEditingController senhaNovaController = TextEditingController();
+  final TextEditingController confirmarSenhaController =
       TextEditingController();
 
   final User? _user = FirebaseAuth.instance.currentUser;
   bool _carregando = false;
   bool _queroAlterarSenha = false;
 
-  // UMA ÚNICA VARIÁVEL PARA A FOTO!
+  // 📸 VARIÁVEL DA FOTO PADRONIZADA COM UNDERSCORE
   Uint8List? _imageBytes;
-  bool _fotoFoiAlterada =
-      false; // Flag para saber se precisamos salvar a foto no banco de novo
+  bool _fotoFoiAlterada = false;
 
-  // Configuração de categorias para profissionais
   String? _categoriaSelecionada;
   late List<String> _categorias;
 
@@ -55,20 +52,17 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     _carregarDadosAtuais();
   }
 
-  // 🔥 Certifique-se de que este método está colado DENTRO da classe _EditarPerfilScreenState
-  Future<List<String>> _buscarSugestoesGoogle(String textoDigitado) async {
+  Future<List<String>> buscarSugestoesGoogle(String textoDigitado) async {
     if (textoDigitado.isEmpty || textoDigitado.length < 3) {
       return [];
     }
-
-    const String apiKey = "AIzaSyCPl210ZIzVG0LjWZWy_JEhvaluSW3MVJA";
+    const String apiKey = "AIzaSyCP1210ZIzVG0LjWZWy_JEhvaluSW3MVJA";
     final String url =
         "https://maps.googleapis.com/maps/api/place/autocomplete/json"
         "?input=${Uri.encodeComponent(textoDigitado)}"
         "&key=$apiKey"
         "&components=country:br"
         "&language=pt-BR";
-
     try {
       final response = await http.get(Uri.parse(url));
       debugPrint("DEBUG GOOGLE: ${response.body}");
@@ -80,30 +74,25 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     } catch (e) {
       debugPrint("Erro no Google Places do Perfil: $e");
     }
-
     return [];
   }
 
   Future<void> _carregarDadosAtuais() async {
     if (_user == null) return;
     setState(() => _carregando = true);
-
-    _emailController.text = _user.email ?? '';
-
+    emailController.text = _user.email ?? '';
     try {
       var doc = await FirebaseFirestore.instance
           .collection('usuarios')
           .doc(_user.uid)
           .get();
-
       if (doc.exists && doc.data() != null) {
         var dados = doc.data()!;
         setState(() {
           _nomeController.text = dados['nome'] ?? '';
-          _telefoneController.text = dados['telefone'] ?? '';
-          _enderecoController.text = dados['endereco'] ?? '';
+          telefoneController.text = dados['telefone'] ?? '';
+          enderecoController.text = dados['endereco'] ?? '';
 
-          // Se existir foto no banco (em Base64), nós decodificamos direto para os bytes visuais!
           String? fotoBanco = dados['fotoPerfil'];
           if (fotoBanco != null && fotoBanco.isNotEmpty) {
             _imageBytes = base64Decode(fotoBanco);
@@ -127,57 +116,86 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     }
   }
 
-  // Agora recebe a fonte (Câmera ou Galeria)
+  // 📷 FUNÇÃO DE CAPTURA TOTALMENTE PADRONIZADA
   Future<void> _escolherFoto(ImageSource fonte) async {
     final picker = ImagePicker();
     final XFile? image = await picker.pickImage(
       source: fonte,
       imageQuality: 20,
     );
-
     if (image != null) {
       final bytes = await image.readAsBytes();
       setState(() {
-        _imageBytes = bytes; // Atualiza a tela instantaneamente
-        _fotoFoiAlterada = true; // Avisa o sistema que tem foto nova pra salvar
+        _imageBytes = bytes;
+        _fotoFoiAlterada = true;
       });
     }
   }
 
-  Future<void> _salvarAlteracoes() async {
-    if (!_formKey.currentState!.validate()) return;
+  // 🗺️ MENU INFERIOR DE ESCOLHA (CÂMERA OU GALERIA) BEM WIREDO!
+  void _mostrarOpcoesFoto(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (context) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt, color: Colors.blue),
+              title: const Text(
+                'Tirar Foto (Câmera)',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _escolherFoto(ImageSource.camera); // Dispara a câmera
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library, color: Colors.teal),
+              title: const Text(
+                'Escolher da Galeria',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _escolherFoto(ImageSource.gallery); // Dispara a galeria
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 
+  Future<void> salvarAlteracoes() async {
+    if (!formKey.currentState!.validate()) return;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
-
     try {
       String uid = _user!.uid;
-
       Map<String, dynamic> dadosAtualizados = {
         'nome': _nomeController.text.trim(),
-        'telefone': _telefoneController.text.trim(),
-        'endereco': _enderecoController.text.trim(),
+        'telefone': telefoneController.text.trim(),
+        'endereco': enderecoController.text.trim(),
       };
-
       if (widget.isProfissional) {
         dadosAtualizados['profissao'] = _categoriaSelecionada;
       }
-
-      // Se o usuário escolheu uma foto NOVA, nós codificamos e mandamos pro Firebase
       if (_fotoFoiAlterada && _imageBytes != null) {
         dadosAtualizados['fotoPerfil'] = base64Encode(_imageBytes!);
       }
-
       await FirebaseFirestore.instance
           .collection('usuarios')
           .doc(uid)
           .update(dadosAtualizados);
 
       if (context.mounted) Navigator.pop(context); // Fecha loading
-
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -199,34 +217,6 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
     }
   }
 
-  void _mostrarOpcoesFoto(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => SafeArea(
-        child: Wrap(
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt),
-              title: const Text('Tirar Foto (Câmera)'),
-              onTap: () {
-                Navigator.pop(context);
-                _escolherFoto(ImageSource.camera); // Usa a câmera
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library),
-              title: const Text('Escolher da Galeria'),
-              onTap: () {
-                Navigator.pop(context);
-                _escolherFoto(ImageSource.gallery); // Usa a galeria
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -239,14 +229,13 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
           : SingleChildScrollView(
               padding: const EdgeInsets.all(20.0),
               child: Form(
-                key: _formKey,
+                key: formKey,
                 child: Column(
                   children: [
                     GestureDetector(
                       onTap: () => _mostrarOpcoesFoto(context),
                       child: Stack(
                         children: [
-                          // O CIRCLE AVATAR AGORA É SUPER LIMPO
                           CircleAvatar(
                             radius: 60,
                             backgroundColor: Colors.grey.shade300,
@@ -288,7 +277,6 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                           value!.isEmpty ? "Preencha este campo" : null,
                     ),
                     const SizedBox(height: 15),
-
                     if (widget.isProfissional) ...[
                       DropdownButtonFormField<String>(
                         initialValue: _categoriaSelecionada,
@@ -302,18 +290,19 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                             child: Text(cat),
                           );
                         }).toList(),
-                        onChanged: (newValue) =>
-                            setState(() => _categoriaSelecionada = newValue),
+                        onChanged: (newValue) {
+                          setState(() {
+                            _categoriaSelecionada = newValue;
+                          });
+                        },
                         validator: (value) =>
                             value == null ? "Selecione uma categoria" : null,
                       ),
                       const SizedBox(height: 15),
                     ],
-
                     TextFormField(
-                      controller: _emailController,
-                      readOnly:
-                          true, // E-mail geralmente não deve ser editável assim
+                      controller: emailController,
+                      readOnly: true,
                       decoration: const InputDecoration(
                         labelText: "E-mail",
                         border: OutlineInputBorder(),
@@ -323,7 +312,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                     ),
                     const SizedBox(height: 15),
                     TextFormField(
-                      controller: _telefoneController,
+                      controller: telefoneController,
                       keyboardType: TextInputType.phone,
                       decoration: const InputDecoration(
                         labelText: "Telefone / WhatsApp",
@@ -334,13 +323,12 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                     ),
                     const SizedBox(height: 15),
                     TypeAheadField<String>(
-                      controller: _enderecoController,
+                      controller: enderecoController,
                       builder: (context, typeAheadController, focusNode) {
                         return TextFormField(
                           controller: typeAheadController,
                           focusNode: focusNode,
-                          maxLines:
-                              2, // Mantive as 2 linhas que você já usava aqui
+                          maxLines: 2,
                           decoration: const InputDecoration(
                             labelText: "Endereço Completo",
                             prefixIcon: Icon(
@@ -349,13 +337,13 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                             ),
                             border: OutlineInputBorder(),
                           ),
-                          validator: (value) => value == null || value.isEmpty
+                          validator: (value) => (value == null || value.isEmpty)
                               ? "Preencha este campo"
                               : null,
                         );
                       },
                       suggestionsCallback: (search) async {
-                        return await _buscarSugestoesGoogle(search);
+                        return await buscarSugestoesGoogle(search);
                       },
                       itemBuilder: (context, String sugestaoEndereco) {
                         return ListTile(
@@ -371,7 +359,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                       },
                       onSelected: (String sugestaoSelecionada) {
                         setState(() {
-                          _enderecoController.text = sugestaoSelecionada;
+                          enderecoController.text = sugestaoSelecionada;
                         });
                       },
                       loadingBuilder: (context) => const Padding(
@@ -389,14 +377,13 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-
-                    // (Deixei a sua área de senha exatamente igual, ela está perfeita!)
                     Card(
                       elevation: 0,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(color: Colors.grey.shade300),
                       ),
+
                       child: Padding(
                         padding: const EdgeInsets.all(12.0),
                         child: Column(
@@ -404,11 +391,14 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Row(
+                                Row(
                                   children: [
-                                    Icon(Icons.lock_reset, color: Colors.blue),
-                                    SizedBox(width: 10),
-                                    Text(
+                                    const Icon(
+                                      Icons.lock_reset,
+                                      color: Colors.blue,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    const Text(
                                       "Deseja alterar sua senha?",
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
@@ -422,9 +412,9 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                                     setState(() {
                                       _queroAlterarSenha = value;
                                       if (!value) {
-                                        _senhaAntigaController.clear();
-                                        _senhaNovaController.clear();
-                                        _confirmarSenhaController.clear();
+                                        senhaAntigaController.clear();
+                                        senhaNovaController.clear();
+                                        confirmarSenhaController.clear();
                                       }
                                     });
                                   },
@@ -434,7 +424,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                             if (_queroAlterarSenha) ...[
                               const Divider(height: 20),
                               TextFormField(
-                                controller: _senhaAntigaController,
+                                controller: senhaAntigaController,
                                 obscureText: true,
                                 decoration: const InputDecoration(
                                   labelText: "Senha Atual",
@@ -447,7 +437,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                               ),
                               const SizedBox(height: 12),
                               TextFormField(
-                                controller: _senhaNovaController,
+                                controller: senhaNovaController,
                                 obscureText: true,
                                 decoration: const InputDecoration(
                                   labelText: "Nova Senha",
@@ -460,7 +450,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                               ),
                               const SizedBox(height: 12),
                               TextFormField(
-                                controller: _confirmarSenhaController,
+                                controller: confirmarSenhaController,
                                 obscureText: true,
                                 decoration: const InputDecoration(
                                   labelText: "Confirme a Nova Senha",
@@ -478,7 +468,7 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                     ),
                     const SizedBox(height: 30),
                     ElevatedButton(
-                      onPressed: _salvarAlteracoes,
+                      onPressed: salvarAlteracoes,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.blue,
                         minimumSize: const Size(double.infinity, 50),
@@ -493,17 +483,14 @@ class _EditarPerfilScreenState extends State<EditarPerfilScreen> {
                     const SizedBox(height: 16),
                     ElevatedButton.icon(
                       onPressed: () async {
-                        // 1. Desloga oficialmente do Firebase Auth
                         await FirebaseAuth.instance.signOut();
-
                         if (context.mounted) {
-                          // 2. Limpa TODA a pilha de telas e joga para o Login
                           Navigator.pushAndRemoveUntil(
                             context,
                             MaterialPageRoute(
                               builder: (context) => const LoginScreen(),
-                            ), // 🔥 Troque 'LoginScreen' pelo nome exato da sua classe de Login
-                            (route) => false, // Esvazia a pilha completamente
+                            ),
+                            (route) => false,
                           );
                         }
                       },

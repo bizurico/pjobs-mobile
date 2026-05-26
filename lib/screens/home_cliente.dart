@@ -589,6 +589,29 @@ class _HomeClienteState extends State<HomeCliente> {
                               style: const TextStyle(color: Colors.blue),
                             ),
                             const SizedBox(height: 4),
+
+                            // 🔥 NOVO: Elemento visual da estrela resgatando a avaliação do Firestore
+                            Row(
+                              children: [
+                                const Icon(
+                                  Icons.star_rounded,
+                                  color: Colors.amber,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  (profissional['avaliacao'] ?? '5.0')
+                                      .toString(),
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                    color: Colors.amber.shade800,
+                                  ),
+                                ),
+                              ],
+                            ),
+
+                            const SizedBox(height: 4),
                             Row(
                               children: [
                                 Icon(

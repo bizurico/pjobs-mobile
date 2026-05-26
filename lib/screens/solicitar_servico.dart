@@ -23,17 +23,23 @@ class _SolicitarServicoModalState extends State<SolicitarServicoModal> {
       []; // Lista para guardar as fotos compatível com Web/Mobile
 
   // Função para abrir a galeria e escolher múltiplas fotos
-  Future<void> _adicionarFotos() async {
+  // Função para abrir a câmera diretamente e capturar fotos uma a uma
+  Future<void> adicionarFotos() async {
     final ImagePicker picker = ImagePicker();
-    final List<XFile> images = await picker.pickMultiImage(imageQuality: 70);
 
-    if (images.isNotEmpty) {
-      for (var img in images) {
-        var bytes = await img.readAsBytes();
-        setState(() {
-          _fotosBytes.add(bytes);
-        });
-      }
+    // 📷 Força o Flutter a abrir a câmera nativa do aparelho diretamente
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.camera,
+      imageQuality: 70, // Mantém a compactação para não estourar o banco
+    );
+
+    if (image != null) {
+      var bytes = await image.readAsBytes();
+      setState(() {
+        _fotosBytes.add(
+          bytes,
+        ); // Adiciona os bytes brutos à lista compatível com Web/Mobile
+      });
     }
   }
 
@@ -104,6 +110,23 @@ class _SolicitarServicoModalState extends State<SolicitarServicoModal> {
       debugPrint(
         "📦 [FIRESTORE] Tentando gravar o documento na coleção 'pedidos'...",
       );
+      String minhaFotoBase64 = '';
+      String minhaNotaNoBanco = '5.0';
+
+      try {
+        // Busca o documento do próprio cliente logado na coleção 'usuarios'
+        var docUser = await FirebaseFirestore.instance
+            .collection('usuarios')
+            .doc(meuUid)
+            .get();
+        if (docUser.exists && docUser.data() != null) {
+          minhaFotoBase64 = docUser.data()?['fotoPerfil'] ?? '';
+          minhaNotaNoBanco = (docUser.data()?['avaliacao'] ?? '5.0').toString();
+        }
+      } catch (e) {
+        debugPrint("Erro ao buscar dados complementares do cliente: $e");
+      }
+
       await FirebaseFirestore.instance.collection('pedidos').add({
         'clienteId': meuUid,
         'clienteNome': meuNome,
@@ -115,6 +138,9 @@ class _SolicitarServicoModalState extends State<SolicitarServicoModal> {
             'Geral', // Usando a sua chave 'profissao'
         'descricaoProblema': _descricaoController.text.trim(),
         'fotos': fotosUrls,
+        'fotoCliente':
+            minhaFotoBase64, // 🔥 ADICIONE ISSO (Puxe a variável onde armazena a foto do cliente logado)
+        'avaliacaoCliente': minhaNotaNoBanco,
         'status': 'aguardando_orcamento',
         'valorProposto': 0.0,
         'dataSolicitacao': FieldValue.serverTimestamp(),
@@ -203,7 +229,7 @@ class _SolicitarServicoModalState extends State<SolicitarServicoModal> {
                     style: TextStyle(fontWeight: FontWeight.w500),
                   ),
                   TextButton.icon(
-                    onPressed: _adicionarFotos,
+                    onPressed: adicionarFotos,
                     icon: const Icon(Icons.add_a_photo),
                     label: const Text("Adicionar"),
                   ),

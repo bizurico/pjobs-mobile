@@ -246,12 +246,22 @@ class _HomeProfissionalState extends State<HomeProfissional> {
           return const Center(child: CircularProgressIndicator());
         }
 
+        // Verificação de segurança caso o documento falhe
         if (!userSnapshot.hasData || !userSnapshot.data!.exists) {
-          return const Center(child: Text("Erro ao carregar perfil."));
+          return const Center(child: Text("Erro ao carregar dados do perfil."));
         }
 
+        // 📝 Captura os dados do profissional do Firestore
         var dados = userSnapshot.data!.data() as Map<String, dynamic>;
 
+        // 🔥 LÓGICA DA NOTA MÉDIA INTEGRADA COM SEGURANÇA
+        String notaExibida = "5.0";
+        var nota = dados['avaliacao'] ?? dados['notaMedia'];
+        if (nota != null) {
+          notaExibida = double.parse(nota.toString()).toStringAsFixed(1);
+        }
+
+        // Gerencia o estado do switch online/offline
         if (!_statusCarregado) {
           _isOnline = dados['isOnline'] ?? false;
           _statusCarregado = true;
@@ -261,10 +271,13 @@ class _HomeProfissionalState extends State<HomeProfissional> {
         return StreamBuilder<QuerySnapshot>(
           stream: FirebaseFirestore.instance
               .collection('pedidos')
-              .where('profissionalId', isEqualTo: uid)
+              .where(
+                'profissionalId',
+                isEqualTo: uid,
+              ) // mude para 'profissionalId' se for o caso no seu banco
               .snapshots(),
           builder: (context, orderSnapshot) {
-            // Captura a lista de documentos (se não houver nada, retorna uma lista vazia)
+            // Captura a lista de documentos dos pedidos
             var pedidosDocs = orderSnapshot.data?.docs ?? [];
 
             return SingleChildScrollView(
@@ -280,8 +293,8 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                   ),
                   const SizedBox(height: 12),
 
-                  // PASSANDO A LISTA DE PEDIDOS PARA O GRID CALCULAR OS NÚMEROS
-                  buildStatGrid(pedidosDocs),
+                  // 🔥 PASSO CRUCIAL: Passamos a 'notaExibida' como segundo parâmetro para o Grid!
+                  buildStatGrid(pedidosDocs, notaExibida),
 
                   const SizedBox(height: 24),
                   const Text(
@@ -400,7 +413,10 @@ class _HomeProfissionalState extends State<HomeProfissional> {
     );
   }
 
-  Widget buildStatGrid(List<QueryDocumentSnapshot> pedidos) {
+  Widget buildStatGrid(
+    List<QueryDocumentSnapshot> pedidos,
+    String notaMediaReal,
+  ) {
     // 1. Total de Pedidos: Filtra para contar APENAS os concluídos
     int totalPedidos = pedidos.where((doc) {
       var p = doc.data() as Map<String, dynamic>;
@@ -435,7 +451,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
           children: [
             Expanded(
               child: _buildStatCard(
-                "Total de Pedidos",
+                "Pedidos Concluídos",
                 totalPedidos.toString(),
                 Icons.assignment,
                 Colors.blue,
@@ -445,7 +461,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
             Expanded(
               child: _buildStatCard(
                 "Avaliação",
-                "N/A", // Mantido conforme seu padrão atual do PDF
+                notaMediaReal,
                 Icons.star,
                 Colors.orange,
               ),
@@ -457,7 +473,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
           children: [
             Expanded(
               child: _buildStatCard(
-                "Ganhos Estimados",
+                "Ganhos",
                 "R\$ ${ganhosEstimados.toStringAsFixed(2)}",
                 Icons.payments,
                 Colors.green,
@@ -526,14 +542,24 @@ class _HomeProfissionalState extends State<HomeProfissional> {
           children: pedidos.map((doc) {
             try {
               var dados = doc.data() as Map<String, dynamic>? ?? {};
+              String fotoCliente = dados['fotoCliente'] ?? '';
+              String clienteNome =
+                  dados['clienteNome'] ?? dados['nome'] ?? 'Cliente';
+              String avaliacaoCliente = "5.0";
+              var avaliacaoRaw = dados['avaliacaoCliente'];
+
+              if (avaliacaoRaw != null && avaliacaoRaw.toString().isNotEmpty) {
+                // Converte o double longo do banco e trava em apenas 1 casa decimal (ex: 2.3)
+                avaliacaoCliente = double.parse(
+                  avaliacaoRaw.toString(),
+                ).toStringAsFixed(1);
+              }
               String pedidoId = doc.id;
 
               // Trazendo as novas chaves do banco de dados
               String status = dados['status']?.toString() ?? 'pendente';
               String descricao =
                   dados['descricaoProblema']?.toString() ?? 'Serviço Geral';
-              String clienteNome =
-                  dados['clienteNome']?.toString() ?? 'Usuário';
               String clienteId = dados['clienteId']?.toString() ?? '';
               String profissionalId = FirebaseAuth.instance.currentUser!.uid;
 
@@ -565,7 +591,6 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                               color: statusColor,
                               size: 30,
                             ),
-
                             const SizedBox(width: 10),
                             Expanded(
                               child: Text(
@@ -580,80 +605,133 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                             ),
                             Text(
                               "Toque para saber mais",
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey,
                                 fontStyle: FontStyle.italic,
                               ),
                             ),
-                            Icon(
+                            const Icon(
                               Icons.arrow_forward_ios,
                               size: 12,
                               color: Colors.grey,
                             ),
                           ],
                         ),
+
+                        const SizedBox(height: 8),
+                        const Divider(), // ⚡ Uma linha divisória sutil para organizar o visual do card
+                        const SizedBox(height: 8),
+
+                        // 🔥 DAQUI ATÉ O PRÓXIMO SIZEDBOX FOI ATUALIZADO COM O SEU NOVO CABEÇALHO ENRIQUECIDO!
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: Colors.blue.shade100,
+                              // Decodifica a foto em Base64 salva dentro do pedido
+                              backgroundImage: fotoCliente.isNotEmpty
+                                  ? MemoryImage(base64Decode(fotoCliente))
+                                  : null,
+                              child: fotoCliente.isEmpty
+                                  ? const Icon(
+                                      Icons.person,
+                                      color: Colors.blue,
+                                      size: 24,
+                                    )
+                                  : null,
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Text(
+                                        "Cliente: $clienteNome",
+                                        style: TextStyle(
+                                          color: Colors.grey.shade800,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // ⭐ Ícone de Estrela Dinâmico
+                                      const Icon(
+                                        Icons.star_rounded,
+                                        color: Colors.amber,
+                                        size: 16,
+                                      ),
+                                      const SizedBox(width: 2),
+                                      Text(
+                                        avaliacaoCliente,
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                          color: Colors.amber.shade800,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Status: ${status.replaceAll('_', ' ').toUpperCase()}",
+                                    style: const TextStyle(
+                                      color: Colors.blueGrey,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 10),
-                        Text(
-                          "Cliente: $clienteNome",
-                          style: TextStyle(color: Colors.grey.shade700),
-                        ),
-                        Text(
-                          "Status: ${status.replaceAll('_', ' ').toUpperCase()}", // 🔥 Remove o underline e coloca um espaço
-                          style: const TextStyle(
-                            color: Colors.blueGrey,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
 
                         if (status == 'em_andamento' ||
                             status == 'iniciado') ...[
                           ElevatedButton.icon(
                             onPressed: () async {
-                              debugPrint(
-                                "DEBUG BOTAO ROTA - DADOS COMPLETOS DO PEDIDO: $dados",
-                              );
-                              // Pegamos o endereço real do cliente que está salvo no documento do pedido
-                              String enderecoCliente =
-                                  dados['enderecoCliente'] ?? '';
-
-                              if (enderecoCliente.isNotEmpty) {
-                                // Codifica o texto do endereço para formato de URL (remove espaços e caracteres especiais)
-                                final query = Uri.encodeComponent(
-                                  enderecoCliente,
-                                );
-
-                                // URL universal que força o telemóvel a abrir o app de GPS nativo em modo de navegação/rota
-                                final googleMapsUrl = Uri.parse(
-                                  "https://www.google.com/maps/search/?api=1&query=$query",
-                                );
-
-                                try {
-                                  if (await canLaunchUrl(googleMapsUrl)) {
+                              try {
+                                String enderecoCliente =
+                                    dados['enderecoCliente'] ?? '';
+                                if (enderecoCliente.isNotEmpty) {
+                                  final query = Uri.encodeComponent(
+                                    enderecoCliente,
+                                  );
+                                  final googleMapsUrl = Uri.parse(
+                                    "https://www.google.com/maps/dir/?api=1&destination=$query&travelmode=driving",
+                                  );
+                                  try {
                                     await launchUrl(
                                       googleMapsUrl,
                                       mode: LaunchMode.externalApplication,
                                     );
-                                  } else {
-                                    throw 'Não foi possível abrir o mapa.';
+                                  } catch (e) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text("Erro ao abrir GPS: $e"),
+                                        backgroundColor: Colors.red,
+                                      ),
+                                    );
                                   }
-                                } catch (e) {
+                                } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text("Erro ao abrir GPS: $e"),
-                                      backgroundColor: Colors.red,
+                                    const SnackBar(
+                                      content: Text(
+                                        "O cliente não informou um endereço válido.",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      backgroundColor: Colors.orange,
                                     ),
                                   );
                                 }
-                              } else {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                      "O cliente não informou um endereço válido.",
-                                    ),
-                                    backgroundColor: Colors.orange,
-                                  ),
-                                );
+                              } catch (e) {
+                                debugPrint("Erro na estrutura do botão: $e");
                               }
                             },
                             icon: const Icon(
@@ -668,28 +746,21 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                               ),
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors
-                                  .blueGrey
-                                  .shade700, // Cor neutra para destacar dos botões de ação principal
+                              backgroundColor: Colors.blueGrey.shade700,
                               minimumSize: const Size(double.infinity, 45),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                           ),
-                          const SizedBox(
-                            height: 8,
-                          ), // Pequeno espaço antes do botão de Iniciar/Concluir
+                          const SizedBox(height: 8),
                         ],
 
-                        // Só mostra os botões se o status for aguardando_orcamento (ou pendente, dependendo de como você salvou antes)
-                        // Só mostra os botões se o status for aguardando_orcamento ou pendente
                         if (status == 'aguardando_orcamento' ||
                             status == 'pendente') ...[
                           const Divider(height: 25),
                           Row(
                             children: [
-                              // BOTÃO 1: ENVIAR MENSAGEM (Agora seguro com Expanded)
                               Expanded(
                                 child: OutlinedButton.icon(
                                   onPressed: () {
@@ -720,8 +791,6 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                                 ),
                               ),
                               const SizedBox(width: 10),
-
-                              // BOTÃO 2: ENVIAR ORÇAMENTO (Agora seguro com Expanded)
                               Expanded(
                                 child: ElevatedButton.icon(
                                   onPressed: () {
@@ -745,7 +814,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                             ],
                           ),
                         ],
-                        // 🔥 BOTÃO DE CANCELAR PARA O PROFISSIONAL (Antes de iniciar o serviço)
+
                         if (status == 'pendente' ||
                             status == 'aguardando_orcamento' ||
                             status == 'em_andamento') ...[
@@ -756,8 +825,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                               onPressed: () {
                                 showDialog(
                                   context: context,
-                                  barrierDismissible:
-                                      false, // Força o usuário a clicar em uma das opções
+                                  barrierDismissible: false,
                                   builder: (dialogContext) => AlertDialog(
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(16),
@@ -773,9 +841,8 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                                     ),
                                     actions: [
                                       TextButton(
-                                        onPressed: () => Navigator.pop(
-                                          dialogContext,
-                                        ), // Fecha apenas o pop-up
+                                        onPressed: () =>
+                                            Navigator.pop(dialogContext),
                                         child: const Text(
                                           "Voltar",
                                           style: TextStyle(color: Colors.grey),
@@ -783,16 +850,10 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                                       ),
                                       ElevatedButton(
                                         onPressed: () async {
-                                          Navigator.pop(
-                                            dialogContext,
-                                          ); // Fecha o pop-up primeiro
-
-                                          // Executa a alteração no Firebase usando o ID correto do pedido
+                                          Navigator.pop(dialogContext);
                                           await FirebaseFirestore.instance
                                               .collection('pedidos')
-                                              .doc(
-                                                pedidoId,
-                                              ) // Variável já existente no seu map do card
+                                              .doc(pedidoId)
                                               .update({'status': 'cancelado'});
 
                                           if (context.mounted) {
@@ -849,7 +910,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                             ),
                           ),
                         ],
-                        // DENTRO DO SEU CARD DE DEMANDAS, NA ÁREA DE BOTÕES:
+
                         if (status == 'em_andamento') ...[
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
@@ -879,9 +940,7 @@ class _HomeProfissionalState extends State<HomeProfissional> {
                               ),
                             ),
                           ),
-                        ]
-                        // 2. SE O SERVIÇO JÁ FOI INICIADO: MOSTRA O BOTÃO DE "CONCLUIR"
-                        else if (status == 'iniciado') ...[
+                        ] else if (status == 'iniciado') ...[
                           const SizedBox(height: 8),
                           ElevatedButton.icon(
                             onPressed: () {

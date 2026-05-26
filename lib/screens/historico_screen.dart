@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
+import 'dart:typed_data';
 
 class HistoricoScreen extends StatelessWidget {
   final bool isProfissional;
@@ -240,204 +241,204 @@ class HistoricoScreen extends StatelessWidget {
 
 void mostrarDetalhesCompletosPedido(
   BuildContext context,
-  Map<String, dynamic> pedido,
+  Map<String, dynamic> dados,
 ) {
-  showModalBottomSheet(
-    context: context,
-    isScrollControlled:
-        true, // Permite que a tela suba se o conteúdo for grande
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-    ),
-    builder: (context) {
-      String status = pedido['status'] ?? 'Pendente';
-      double valor = (pedido['valorProposto'] ?? 0.0).toDouble();
+  // Pega a descrição correta salvando compatibilidade com o seu solicitar_servico
+  String descricao =
+      dados['descricaoProblema'] ??
+      dados['descricao'] ??
+      'Sem descrição informada.';
+  String endereco = dados['enderecoCliente'] ?? 'Endereço não informado.';
 
-      return DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (context, scrollController) {
-          return SingleChildScrollView(
-            controller: scrollController,
-            padding: const EdgeInsets.all(24),
+  String preco = dados['valorProposto'] != null && dados['valorProposto'] > 0
+      ? "R\$ ${dados['valorProposto']}"
+      : "Aguardando orçamento";
+
+  // 1. TRATAMENTO ULTRA SEGURO DAS FOTOS: Descobre se veio lista ou string antiga
+  List<dynamic> fotosRaw = [];
+  if (dados['fotos'] is List) {
+    fotosRaw = dados['fotos'];
+  } else if (dados['fotos'] is String && dados['fotos'].toString().isNotEmpty) {
+    fotosRaw = [dados['fotos']];
+  }
+
+  // 2. PRÉ-DECODIFICAÇÃO DE SEGURANÇA (Evita a tela cinza por completo!)
+  List<Uint8List> fotosDecodificadas = [];
+  for (var foto in fotosRaw) {
+    if (foto != null && foto.toString().trim().isNotEmpty) {
+      try {
+        // Limpa espaços em branco acidentais e converte com segurança fora do build
+        Uint8List bytes = base64Decode(foto.toString().trim());
+        if (bytes.isNotEmpty) {
+          fotosDecodificadas.add(bytes);
+        }
+      } catch (e) {
+        debugPrint(
+          "⚠️ Erro ao decodificar imagem do chamado (Ignorando para não crashar): $e",
+        );
+      }
+    }
+  }
+
+  // Formata o texto do status para exibição elegante
+  String statusText = (dados['status'] ?? 'AGUARDANDO_ORCAMENTO')
+      .toString()
+      .replaceAll('_', ' ')
+      .toUpperCase();
+
+  showDialog(
+    context: context,
+    builder: (BuildContext dialogContext) {
+      return AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        // 🔥 CORREÇÃO DO OVERFLOW: Trocado de Row para Wrap para quebrar linha se faltar espaço!
+        title: Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.assignment_outlined, color: Colors.blue),
+                SizedBox(width: 8),
+                Text(
+                  "Detalhes do Serviço",
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+              ],
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: Colors.orange.shade100,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                statusText,
+                style: TextStyle(
+                  color: Colors.orange.shade900,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          // Força uma largura responsiva elegante para o modal não amassar
+          width: MediaQuery.of(context).size.width * 0.85,
+          child: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                // Indicador de arrastar do modal
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      "Detalhes do Serviço",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: status == 'concluido'
-                            ? Colors.green.shade100
-                            : Colors.red.shade100,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: status == 'concluido'
-                              ? Colors.green.shade800
-                              : Colors.red.shade800,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const Divider(height: 30),
-
                 const Text(
                   "Descrição do Problema:",
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.grey,
+                    fontSize: 13,
                   ),
                 ),
-                const SizedBox(height: 6),
+                const SizedBox(height: 4),
                 Text(
-                  pedido['descricaoProblema'] ?? 'Não informada',
-                  style: const TextStyle(fontSize: 16),
+                  descricao,
+                  style: const TextStyle(fontSize: 15, color: Colors.black87),
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
 
-                if (valor > 0) ...[
-                  const Text(
-                    "Preço do Serviço:",
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey,
-                    ),
+                const Text(
+                  "Local de Atendimento:",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                    fontSize: 13,
                   ),
-                  const SizedBox(height: 6),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  endereco,
+                  style: const TextStyle(fontSize: 14, color: Colors.black87),
+                ),
+                const SizedBox(height: 16),
+
+                const Text(
+                  "Valor do Orçamento:",
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.grey,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  preco,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Divider(),
+
+                // 🔥 EXIBIÇÃO EM CARROSSEL DAS FOTOS DO PROBLEMA (Se existirem)
+                if (fotosDecodificadas.isNotEmpty) ...[
+                  const SizedBox(height: 12),
                   Text(
-                    "R\$ ${valor.toStringAsFixed(2)}",
+                    "Evidências do Problema (${fotosDecodificadas.length}):",
                     style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-                ],
-
-                // --- FOTO INICIAL DA SOLICITAÇÃO ---
-                if (pedido['fotoSolicitacao'] != null &&
-                    pedido['fotoSolicitacao'].toString().isNotEmpty) ...[
-                  const Text(
-                    "Foto Anexada pelo Cliente:",
-                    style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.grey,
+                      fontSize: 13,
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Container(
-                    height: 180,
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      image: DecorationImage(
-                        image: MemoryImage(
-                          base64Decode(pedido['fotoSolicitacao']),
-                        ),
-                        fit: BoxFit.cover,
-                      ),
+                  SizedBox(
+                    height:
+                        160, // Tamanho excelente para o profissional inspecionar a foto
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: fotosDecodificadas.length,
+                      itemBuilder: (context, index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 10),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Container(
+                              width: 160,
+                              color: Colors.grey.shade100,
+                              child: Image.memory(
+                                fotosDecodificadas[index],
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
                   ),
-                  const SizedBox(height: 20),
-                ],
-
-                // --- SEÇÃO: EVIDÊNCIAS DE ENTREGA (SÓ APARECE SE TIVER CONCLUÍDO) ---
-                if (status == 'concluido' &&
-                    pedido['fotoAntes'] != null &&
-                    pedido['fotoDepois'] != null) ...[
-                  const Divider(height: 30),
-                  const Text(
-                    "Comprovação de Entrega:",
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
+                ] else ...[
+                  // 🔥 AVISO DE SEM FOTOS: Fica guardado aqui dentro e só aparece no modal!
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text(
-                              "Antes",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              height: 120,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                image: DecorationImage(
-                                  image: MemoryImage(
-                                    base64Decode(pedido['fotoAntes']),
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                      Icon(
+                        Icons.image_not_supported_outlined,
+                        color: Colors.grey.shade400,
+                        size: 20,
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          children: [
-                            const Text(
-                              "Depois",
-                              style: TextStyle(
-                                color: Colors.grey,
-                                fontSize: 12,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Container(
-                              height: 120,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                image: DecorationImage(
-                                  image: MemoryImage(
-                                    base64Decode(pedido['fotoDepois']),
-                                  ),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            ),
-                          ],
+                      const SizedBox(width: 8),
+                      const Expanded(
+                        child: Text(
+                          "Nenhuma foto foi anexada a esta solicitação.",
+                          style: TextStyle(
+                            fontStyle: FontStyle.italic,
+                            color: Colors.grey,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
                     ],
@@ -445,8 +446,17 @@ void mostrarDetalhesCompletosPedido(
                 ],
               ],
             ),
-          );
-        },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext),
+            child: const Text(
+              "Fechar",
+              style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue),
+            ),
+          ),
+        ],
       );
     },
   );
@@ -564,8 +574,11 @@ void mostrarDialogAvaliacao(
 
                             if (userDoc.exists && userDoc.data() != null) {
                               var dadosUser = userDoc.data()!;
-                              mediaAtual = (dadosUser['notaMedia'] ?? 0.0)
-                                  .toDouble();
+                              mediaAtual =
+                                  (dadosUser['avaliacao'] ??
+                                          dadosUser['notaMedia'] ??
+                                          0.0)
+                                      .toDouble(); // 🔥 Lê de forma flexível
                               totalAvaliacoes =
                                   (dadosUser['totalAvaliacoes'] ?? 0);
                             }
@@ -578,7 +591,10 @@ void mostrarDialogAvaliacao(
 
                             // 3. Atualiza o perfil do avaliado
                             await userRef.update({
-                              'notaMedia': novaMedia,
+                              'avaliacao':
+                                  novaMedia, // 🔥 AGORA SIM! Atualiza a nota que os cards de busca lêem
+                              'notaMedia':
+                                  novaMedia, // Mantém o seu campo original intacto
                               'totalAvaliacoes': novoTotal,
                             });
 
