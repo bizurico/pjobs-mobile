@@ -42,14 +42,14 @@ O projeto foi construído utilizando um ecossistema moderno focado em alta perfo
 Siga os passos abaixo para clonar o repositório e executar o projeto em seu ambiente de desenvolvimento ou dispositivo físico:
 
 ### Pré-requisitos
-* Flutter SDK instalado e configurado (versão estável estável estável).
+* Flutter SDK instalado e configurado.
 * Um dispositivo Android com o Modo de Depuração USB ativado ou um emulador configurado.
 
 ### Passos para Execução
 
 1.  **Clonar o repositório:**
     ```bash
-    git clone [https://github.com/SEU_USUARIO_GITHUB/pjobs.git](https://github.com/SEU_USUARIO_GITHUB/pjobs.git)
+    git clone [https://github.com/bizurico/pjobs-mobile.git](https://github.com/bizurico/pjobs-mobile.git)
     ```
 2.  **Acessar a pasta do projeto:**
     ```bash
