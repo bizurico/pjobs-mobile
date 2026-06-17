@@ -1,4 +1,4 @@
-// ignore_for_file: avoid_print
+// ignore_for_file: use_build_context_synchronously, avoid_print
 
 import 'package:flutter/material.dart';
 import 'package:myapp/screens/home_cliente.dart';
@@ -7,6 +7,10 @@ import '../core/constants.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:convert';
+import 'package:flutter_typeahead/flutter_typeahead.dart';
+import 'package:http/http.dart' as http;
 
 class CadastroScreen extends StatefulWidget {
   const CadastroScreen({super.key});
@@ -25,9 +29,45 @@ class _CadastroScreenState extends State<CadastroScreen> {
   final _senhaController = TextEditingController();
   final _cpfController = TextEditingController();
   final _bioController = TextEditingController();
+  final _telefoneController = TextEditingController();
+  final _enderecoController = TextEditingController();
+
+  String? _fotoBase64; // Para armazenar a foto convertida em Base64
+
+  @override
+  void dispose() {
+    _nomeController.dispose();
+    _emailController.dispose();
+    _senhaController.dispose();
+    _cpfController.dispose();
+    _bioController.dispose();
+    _telefoneController.dispose();
+    _enderecoController.dispose();
+    super.dispose();
+  }
 
   bool isCliente = true;
   String? categoriaSelecionada;
+
+  Future<List<String>> _buscarSugestoesGoogle(String textoDigitado) async {
+    if (textoDigitado.isEmpty || textoDigitado.length < 3) return [];
+    const String apiKey = "AIzaSyCPl210ZIzVG0LjWZWy_JEhvaluSW3MVJA";
+    final String url =
+        "https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${Uri.encodeComponent(textoDigitado)}&key=$apiKey&components=country:br&language=pt-BR";
+
+    try {
+      final response = await http.get(Uri.parse(url));
+      print("DEBUG GOOGLE: ${response.body}");
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final List predictions = data['predictions'] ?? [];
+        return predictions.map((p) => p['description'].toString()).toList();
+      }
+    } catch (e) {
+      print("Erro: $e");
+    }
+    return [];
+  }
 
   // Lógica para salvar no Firebase
   Future<void> _cadastrarUsuario() async {
@@ -45,25 +85,46 @@ class _CadastroScreenState extends State<CadastroScreen> {
             .collection('usuarios')
             .doc(userCredential.user!.uid)
             .set({
-              'nome': _nomeController.text,
-              'email': _emailController.text,
+              'nome': _nomeController.text.trim(),
+              'email': _emailController.text.trim(),
               'isCliente': isCliente,
-              'cpf': _cpfController.text,
+              'cpf': _cpfController.text.trim(),
+              'telefone': _telefoneController.text.trim(), // <-- NOVO
+              'endereco': _enderecoController.text.trim(), // <-- NOVO
+              'fotoPerfil': _fotoBase64,
               if (!isCliente) 'profissao': categoriaSelecionada,
-              if (!isCliente) 'bio': _bioController.text,
-              'createdAt': DateTime.now(),
+              if (!isCliente) 'bio': _bioController.text.trim(),
+              'createdAt':
+                  FieldValue.serverTimestamp(), // Trocado para o horário oficial do servidor do Firebase
             });
 
+        if (!context.mounted) return;
         print("Sucesso! Usuário salvo no banco de dados.");
 
         // 3. Redireciona
         _redirecionarUsuario();
       } catch (e) {
-        print("Erro no cadastro: $e");
+        if (!context.mounted) return;
+        debugPrint("Erro no cadastro: $e");
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Erro ao cadastrar: ${e.toString()}")),
         );
       }
+    }
+  }
+
+  Future<void> _escolherFoto() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 20,
+    );
+
+    if (image != null) {
+      List<int> imageBytes = await image.readAsBytes();
+      setState(() {
+        _fotoBase64 = base64Encode(imageBytes);
+      });
     }
   }
 
@@ -109,6 +170,35 @@ class _CadastroScreenState extends State<CadastroScreen> {
                 onPressed: _cadastrarUsuario,
                 child: const Text("Finalizar Cadastro"),
               ),
+              const SizedBox(height: 24),
+              // WIDGET DA FOTO DE PERFIL
+              Center(
+                child: GestureDetector(
+                  onTap: _escolherFoto,
+                  child: CircleAvatar(
+                    radius: 50,
+                    backgroundColor: Colors.grey.shade200,
+                    backgroundImage: _fotoBase64 != null
+                        ? MemoryImage(base64Decode(_fotoBase64!))
+                        : null,
+                    child: _fotoBase64 == null
+                        ? const Icon(
+                            Icons.add_a_photo,
+                            size: 40,
+                            color: Colors.grey,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Center(
+                child: Text(
+                  "Adicionar Foto (Opcional)",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              const SizedBox(height: 24),
             ],
           ),
         ),
@@ -143,7 +233,12 @@ class _CadastroScreenState extends State<CadastroScreen> {
   Widget _buildCamposComuns() {
     return Column(
       children: [
-        _buildTextField("Nome Completo", controller: _nomeController),
+        _buildTextField(
+          "Nome Completo",
+          controller: _nomeController,
+          validator: (value) =>
+              value == null || value.isEmpty ? "Nome é obrigatório" : null,
+        ),
         const SizedBox(height: 16),
         _buildTextField(
           "CPF",
@@ -160,9 +255,33 @@ class _CadastroScreenState extends State<CadastroScreen> {
           },
         ),
         const SizedBox(height: 16),
+
+        // --- NOVOS CAMPOS NA TELA ---
+        _buildTextField(
+          "Telefone (WhatsApp)",
+          controller: _telefoneController,
+          keyboardType: TextInputType.phone,
+          validator: (value) {
+            if (value == null || value.isEmpty) {
+              return "O telefone é obrigatório";
+            }
+            return null;
+          },
+        ),
+        const SizedBox(height: 16),
+        _buildAddressField(
+          controller: _enderecoController,
+          label: "Endereço Completo",
+          validator: (value) =>
+              value == null || value.isEmpty ? "Endereço é obrigatório" : null,
+        ),
+        const SizedBox(height: 16),
+
+        // ----------------------------
         _buildTextField(
           "E-mail",
           controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
           validator: (value) {
             if (value == null || value.isEmpty) return "O e-mail é obrigatório";
             if (!value.contains("@")) return "Digite um e-mail válido";
@@ -182,7 +301,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
               return null;
             },
           ),
-        const SizedBox(height: 16),
+        if (!isCliente) const SizedBox(height: 16),
         _buildTextField(
           "Senha",
           controller: _senhaController,
@@ -204,7 +323,7 @@ class _CadastroScreenState extends State<CadastroScreen> {
         labelText: "Sua Especialidade",
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
-      value: categoriaSelecionada,
+      initialValue: categoriaSelecionada,
       items: AppConstants.categorias.map((String value) {
         return DropdownMenuItem<String>(value: value, child: Text(value));
       }).toList(),
@@ -237,13 +356,49 @@ class _CadastroScreenState extends State<CadastroScreen> {
     );
   }
 
-  @override
-  void dispose() {
-    _nomeController.dispose();
-    _emailController.dispose();
-    _senhaController.dispose();
-    _cpfController.dispose();
-    _bioController.dispose();
-    super.dispose();
+  // 2. O SEU NOVO MOTOR EXCLUSIVO PARA ENDEREÇO (Com o Autocomplete do Google)
+  Widget _buildAddressField({
+    required TextEditingController controller,
+    String label = "Endereço Completo",
+    String? Function(String?)? validator,
+  }) {
+    return TypeAheadField<String>(
+      controller: controller,
+      builder: (context, typeAheadController, focusNode) {
+        return TextFormField(
+          controller: typeAheadController,
+          focusNode: focusNode,
+          validator: validator,
+          decoration: InputDecoration(
+            labelText: label,
+            prefixIcon: const Icon(Icons.location_on, color: Colors.red),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        );
+      },
+      suggestionsCallback: (search) async {
+        return await _buscarSugestoesGoogle(search);
+      },
+      itemBuilder: (context, String sugestaoEndereco) {
+        return ListTile(
+          leading: const Icon(Icons.place, color: Colors.blueGrey),
+          title: Text(sugestaoEndereco, style: const TextStyle(fontSize: 14)),
+        );
+      },
+      onSelected: (String sugestaoSelecionada) {
+        controller.text = sugestaoSelecionada;
+      },
+      loadingBuilder: (context) => const Padding(
+        padding: EdgeInsets.all(8.0),
+        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+      ),
+      emptyBuilder: (context) => const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text(
+          "Nenhum endereço encontrado.",
+          style: TextStyle(color: Colors.grey),
+        ),
+      ),
+    );
   }
 }
